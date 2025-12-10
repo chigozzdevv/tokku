@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+tokku_engine = "EepYTCc1WZMzXLhLrXy2NwKAAJxM1FH6tKfVsRnhwo1U"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/tokku-admin.json"
+
+[scripts]
+test = "anchor test"

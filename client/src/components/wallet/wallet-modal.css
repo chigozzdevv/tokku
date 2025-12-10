@@ -1,0 +1,193 @@
+.wallet-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.wallet-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  animation: modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.wallet-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.wallet-modal-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.wallet-modal-close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.wallet-modal-close:hover {
+  background: var(--muted-surface);
+  color: var(--text);
+}
+
+.wallet-modal-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.wallet-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wallet-modal-section--secondary {
+  margin-top: 1.5rem;
+}
+
+.wallet-option {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--muted-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.wallet-option:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 15%, var(--muted-surface));
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  transform: translateX(4px);
+}
+
+.wallet-option:active:not(:disabled) {
+  transform: translateX(2px);
+}
+
+.wallet-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wallet-option--pending {
+  opacity: 0.6;
+  position: relative;
+}
+
+.wallet-option--pending::after {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--text) 40%, transparent);
+  border-top-color: var(--accent);
+  animation: wallet-spinner 0.75s linear infinite;
+  margin-left: 0.5rem;
+}
+
+.wallet-option-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.wallet-option-name {
+  flex: 1;
+}
+
+.wallet-option-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-contrast, var(--accent));
+  background: color-mix(in oklab, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.wallet-modal-toggle {
+  appearance: none;
+  align-self: stretch;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wallet-modal-toggle:hover {
+  background: var(--muted-surface);
+  color: var(--text);
+  border-style: solid;
+}
+
+.wallet-modal-list--secondary {
+  margin-top: 0.75rem;
+}
+
+.wallet-modal-empty {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  text-align: center;
+}
+
+@keyframes wallet-spinner {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

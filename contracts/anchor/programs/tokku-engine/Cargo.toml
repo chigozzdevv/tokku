@@ -1,0 +1,24 @@
+[package]
+name = "tokku-engine"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "tokku_engine"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed", "idl-build"] }
+anchor-spl = { version = "0.31.1", features = ["idl-build"] }
+ephemeral-rollups-sdk = { version = "0.3", default-features = false, features = ["anchor"] }
+ephemeral-vrf-sdk = { version = "0.1", default-features = false, features = ["anchor"] }
+borsh = "0.10.3"
+sha2 = "0.10"
+bytemuck = "1.14"
+itoa = "1"
