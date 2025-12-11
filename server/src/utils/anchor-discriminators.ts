@@ -28,4 +28,5 @@ export const DISCRIMINATORS = {
   COMMIT_AND_UNDELEGATE_ROUND: getAnchorDiscriminator('commit_and_undelegate_round'),
   SET_HOUSE_EDGE_BPS: getAnchorDiscriminator('set_house_edge_bps'),
   INITIALIZE_MARKET: getAnchorDiscriminator('initialize_market'),
+  FUND_VAULT: getAnchorDiscriminator('fund_vault'),
 };

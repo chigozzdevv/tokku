@@ -651,6 +651,29 @@ pub mod tokku_engine {
         Ok(())
     }
 
+    pub fn fund_vault(ctx: Context<FundVault>, amount: u64) -> Result<()> {
+        require!(amount > 0, ErrorCode::InvalidStake);
+
+        require_keys_eq!(ctx.accounts.market.admin, ctx.accounts.admin.key(), ErrorCode::Unauthorized);
+        require_keys_eq!(ctx.accounts.market.mint, ctx.accounts.mint.key(), ErrorCode::Unauthorized);
+
+        let decimals = ctx.accounts.mint.decimals;
+
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.admin_token.to_account_info(),
+            to: ctx.accounts.vault_token.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            authority: ctx.accounts.admin.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+        token::transfer_checked(cpi_ctx, amount, decimals)?;
+
+        Ok(())
+    }
+
     pub fn init_streak(ctx: Context<InitStreak>, target: u16) -> Result<()> {
         require!(target >= 2 && target <= 10, ErrorCode::InvalidStreakTarget);
 
@@ -1356,6 +1379,30 @@ pub struct InitVault<'info> {
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct FundVault<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub market: Account<'info, Market>,
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = admin,
+    )]
+    pub admin_token: Account<'info, TokenAccount>,
+    #[account(seeds = [VAULT_SEED, market.key().as_ref()], bump)]
+    /// CHECK: Program-derived address used as vault authority; seeds verified by Anchor
+    pub vault_authority: AccountInfo<'info>,
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = vault_authority,
+    )]
+    pub vault_token: Account<'info, TokenAccount>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]

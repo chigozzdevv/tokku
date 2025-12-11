@@ -139,6 +139,94 @@ export class TokkuProgramService {
     return this.sendAndConfirm(this.connection, tx, [adminKeypair], 'confirmed');
   }
 
+  async fundVault(
+    marketId: PublicKey,
+    amountLamports: number,
+    mint: PublicKey,
+    adminKeypair: Keypair,
+  ): Promise<string> {
+    const [vaultPda] = PublicKey.findProgramAddressSync(
+      [VAULT_SEED, marketId.toBuffer()],
+      TOKKU_PROGRAM_ID,
+    );
+
+    const adminTokenAccount = await getAssociatedTokenAddress(mint, adminKeypair.publicKey, false);
+    const vaultTokenAccount = await getAssociatedTokenAddress(mint, vaultPda, true);
+
+    const ixs: TransactionInstruction[] = [];
+
+    const [adminAtaInfo, vaultAtaInfo] = await Promise.all([
+      this.connection.getAccountInfo(adminTokenAccount),
+      this.connection.getAccountInfo(vaultTokenAccount),
+    ]);
+
+    if (!adminAtaInfo) {
+      ixs.push(
+        createAssociatedTokenAccountInstruction(
+          adminKeypair.publicKey,
+          adminTokenAccount,
+          adminKeypair.publicKey,
+          mint,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+        ),
+      );
+    }
+
+    if (!vaultAtaInfo) {
+      ixs.push(
+        createAssociatedTokenAccountInstruction(
+          adminKeypair.publicKey,
+          vaultTokenAccount,
+          vaultPda,
+          mint,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+        ),
+      );
+    }
+
+    if (mint.equals(NATIVE_MINT)) {
+      ixs.push(
+        SystemProgram.transfer({
+          fromPubkey: adminKeypair.publicKey,
+          toPubkey: adminTokenAccount,
+          lamports: amountLamports,
+        }),
+      );
+      ixs.push(createSyncNativeInstruction(adminTokenAccount));
+    }
+
+    const amountBuf = Buffer.alloc(8);
+    amountBuf.writeBigUInt64LE(BigInt(amountLamports));
+
+    const data = Buffer.concat([
+      DISCRIMINATORS.FUND_VAULT,
+      amountBuf,
+    ]);
+
+    const ix = new TransactionInstruction({
+      keys: [
+        { pubkey: adminKeypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: marketId, isSigner: false, isWritable: false },
+        { pubkey: adminTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: vaultPda, isSigner: false, isWritable: false },
+        { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      programId: TOKKU_PROGRAM_ID,
+      data,
+    });
+
+    const tx = new Transaction().add(...ixs, ix);
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = adminKeypair.publicKey;
+
+    return this.sendAndConfirm(this.connection, tx, [adminKeypair], 'confirmed');
+  }
+
   async placeBet(
     userPublicKey: PublicKey,
     marketId: PublicKey,

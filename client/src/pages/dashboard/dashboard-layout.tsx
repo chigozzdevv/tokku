@@ -57,7 +57,7 @@ export function DashboardLayout() {
     <div className="dashboard-shell">
       <aside className="dashboard-sidebar">
         <a href="/" className="brand dashboard-sidebar-brand" aria-label="Tokku dashboard">
-          <img src="/logo-tokku.svg" alt="" className="brand-mark" aria-hidden />
+          <img src="/tokku-logo.png" alt="" className="brand-mark" aria-hidden />
           <span>tokku</span>
         </a>
         <nav className="dashboard-sidebar-nav" aria-label="Dashboard">

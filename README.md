@@ -1,8 +1,8 @@
-# TOSSR.gg — Provably Random Gaming with MagicBlock ER + VRF + TEE
+# Tokku — Provably Random Gaming with MagicBlock ER + VRF + TEE
 
 View demo [here](https://youtu.be/vcAsKuCF6Qg)
 
-TOSSR.gg is a provably-fair gaming platform on Solana that combines:
+Tokku is a provably-fair gaming platform on Solana that combines:
 - MagicBlock Ephemeral Rollups (ER) for low‑latency, gasless UX and fast state commits
 - MagicBlock VRF for verifiable 32‑byte randomness
 - TEE (Trusted Execution Environment) for private outcome generation with attestations
@@ -45,7 +45,7 @@ Each betting round follows: Predict → Lock → Reveal → Settle. We use base-
 Server prefers Magic Router or ER RPC when `useER` is set, falling back to base as needed.
 
 ```ts
-// server/src/solana/tossr-program-service.ts
+// server/src/solana/tokku-program-service.ts
 private async getErBlockhashForTransaction(tx: Transaction) {
   if (this.routerConnection) {
     const routerBlockhash = await this.routerConnection.getLatestBlockhashForTransaction(tx);
@@ -83,10 +83,10 @@ Before delegating a round, the server ensures required token accounts exist both
 
 ```ts
 // server/src/features/rounds/rounds.service.ts
-const vaultPda = await tossrProgram.getVaultPda(marketPubkey);
+const vaultPda = await tokkuProgram.getVaultPda(marketPubkey);
 const vaultTokenAccount = await getAssociatedTokenAddress(mint, vaultPda, true);
 // Create on base if missing ... then on ER if missing ...
-const delegateTxHash = await tossrProgram.delegateRound(marketPubkey, round.roundNumber, adminKeypair);
+const delegateTxHash = await tokkuProgram.delegateRound(marketPubkey, round.roundNumber, adminKeypair);
 await Round.updateOne({ _id: roundId }, { $set: { delegateTxHash } });
 ```
 
@@ -95,7 +95,7 @@ Server requests VRF (ER or base) and then polls ER account first to detect input
 
 ```ts
 // server/src/features/rounds/rounds.service.ts
-await tossrProgram.requestRandomnessER(marketPubkey, round.roundNumber, clientSeed, adminKeypair, oracleQueue, { useER: isDelegated });
+await tokkuProgram.requestRandomnessER(marketPubkey, round.roundNumber, clientSeed, adminKeypair, oracleQueue, { useER: isDelegated });
 const [erState, baseState] = await Promise.all([
   fetchRoundStateRaw(erConnection, roundPda),
   fetchRoundStateRaw(baseConnection, roundPda),
@@ -107,7 +107,7 @@ const state = erState && !/^0+$/.test(erState.inputsHash || '') ? erState : base
 Commit via ER, then obtain the base‑layer signature from MagicBlock SDK and record both.
 
 ```ts
-// server/src/solana/tossr-program-service.ts
+// server/src/solana/tokku-program-service.ts
 const erTxHash = await this.sendAndConfirm(this.erConnection, tx, [payer], 'confirmed', true);
 const baseTxHash = await GetCommitmentSignature(erTxHash, this.erConnection);
 return { erTxHash, baseTxHash };
@@ -119,8 +119,8 @@ When delegated, use ER reveal variants; otherwise reveal on base with nonce + in
 ```ts
 // server/src/features/rounds/rounds.service.ts
 revealTxHash = isDelegated
-  ? await tossrProgram.revealOutcomeER(marketPubkey, round.roundNumber, outcome.Numeric.value, adminKeypair)
-  : await tossrProgram.revealOutcome(marketPubkey, round.roundNumber, outcome.Numeric.value, nonce, inputsHash, attestationSig, adminKeypair);
+  ? await tokkuProgram.revealOutcomeER(marketPubkey, round.roundNumber, outcome.Numeric.value, adminKeypair)
+  : await tokkuProgram.revealOutcome(marketPubkey, round.roundNumber, outcome.Numeric.value, nonce, inputsHash, attestationSig, adminKeypair);
 ```
 
 #### MagicBlock ER Use Cases Summary
@@ -137,7 +137,7 @@ revealTxHash = isDelegated
 VRF is requested on ER (or base). The 32‑byte inputsHash is detected by polling ER first.
 
 ```ts
-// server/src/solana/tossr-program-service.ts
+// server/src/solana/tokku-program-service.ts
 async requestRandomnessER(marketId, roundNumber, clientSeed, payer, oracleQueue, opts?: { useER?: boolean }) {
   const ix = new TransactionInstruction({
     keys: [
@@ -150,7 +150,7 @@ async requestRandomnessER(marketId, roundNumber, clientSeed, payer, oracleQueue,
       { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false },
       { pubkey: SystemProgram.programId, isSigner: false },
     ],
-    programId: TOSSR_PROGRAM_ID,
+    programId: TOKKU_ENGINE_PROGRAM_ID,
     data: Buffer.concat([DISCRIMINATORS.REQUEST_RANDOMNESS, Buffer.from([clientSeed & 0xff])]),
   });
   // send via ER or base
@@ -179,7 +179,7 @@ const attestation = await response.json();
 
 ## Contracts
 
-- Anchor workspace: `contracts/anchor/programs/tossr-engine` (IDL consumed by server)
+- Anchor workspace: `contracts/anchor/programs/tokku-engine` (IDL consumed by server)
 - TEE utilities crate: `contracts/tee-engine`
 
 Build:
@@ -244,7 +244,7 @@ LOG_LEVEL=info
 CORS_ORIGIN=http://localhost:5173
 
 # Datastores
-MONGODB_URI=mongodb://localhost:27017/tossr
+MONGODB_URI=mongodb://localhost:27017/tokku
 REDIS_URL=redis://localhost:6379
 
 # Solana / MagicBlock
@@ -260,7 +260,7 @@ DELEGATION_PROGRAM_ID=REPLACE_WITH_PROGRAM_ID
 MAGIC_PROGRAM_ID=REPLACE_WITH_PROGRAM_ID
 TEE_PROGRAM_ID=REPLACE_WITH_PROGRAM_ID
 PERMISSION_PROGRAM_ID=REPLACE_WITH_PROGRAM_ID
-TOSSR_ENGINE_PROGRAM_ID=REPLACE_WITH_TOSSR_PROGRAM_ID
+TOKKU_ENGINE_PROGRAM_ID=REPLACE_WITH_TOKKU_PROGRAM_ID
 
 # Auth
 JWT_SECRET=replace-with-strong-secret

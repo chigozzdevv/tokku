@@ -37,8 +37,8 @@ async function main() {
   const isDelegated = Boolean(round.delegateTxHash && !round.undelegateTxHash)
   const clientSeed = round.roundNumber % 256
 
-  const tossr = new TokkuProgramService()
-  const sig = await tossr.requestRandomnessER(
+  const tokkuProgram = new TokkuProgramService()
+  const sig = await tokkuProgram.requestRandomnessER(
     marketPk,
     round.roundNumber,
     clientSeed,
@@ -48,7 +48,7 @@ async function main() {
   )
   console.log('VRF request sent:', { signature: sig, roundId: String(round._id), roundNumber: round.roundNumber, isDelegated })
 
-  const roundPda = await tossr.getRoundPda(marketPk, round.roundNumber)
+  const roundPda = await tokkuProgram.getRoundPda(marketPk, round.roundNumber)
   const erConn = new Connection(config.EPHEMERAL_RPC_URL)
   const baseConn = new Connection(config.SOLANA_RPC_URL)
 
