@@ -25,7 +25,7 @@ export function SettingsPage() {
       <div className="dashboard-panel-header">
         <div>
           <h1 className="dashboard-title">Settings</h1>
-          <p className="dashboard-subtitle">Manage your Tossr dashboard session</p>
+          <p className="dashboard-subtitle">Manage your Tokku dashboard session</p>
         </div>
       </div>
       <div className="dashboard-settings">

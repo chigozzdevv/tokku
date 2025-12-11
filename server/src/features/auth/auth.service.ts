@@ -12,7 +12,7 @@ export class AuthService {
     }
     const nonce = randomBytes(16).toString('hex');
     await redis.set(redisKeys.authNonce(publicKey), nonce, 'EX', 300);
-    return { nonce, message: `tosr-auth:${nonce}` };
+    return { nonce, message: `tokku-auth:${nonce}` };
   }
   async signInWithWallet(message: string, signature: string, publicKey: string) {
     const isValidSignature = await verifySolanaMessage(message, signature, publicKey);
@@ -23,7 +23,7 @@ export class AuthService {
     if (!stored) {
       throw new AuthenticationError('Auth nonce expired');
     }
-    const expected = `tosr-auth:${stored}`;
+    const expected = `tokku-auth:${stored}`;
     if (message !== expected) {
       throw new AuthenticationError('Invalid auth message');
     }

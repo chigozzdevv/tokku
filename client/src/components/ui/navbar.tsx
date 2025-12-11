@@ -43,8 +43,7 @@ export function Navbar() {
     <header className={`nav ${solid ? 'solid' : ''}`}>
       <div className="container nav-inner">
         <a href="/" className="brand" aria-label="Tokku home">
-          <img src="/tokku-logo.png" alt="" className="brand-mark" aria-hidden />
-          <span>tokku</span>
+          <img src="/tokku-logo.png" alt="Tokku" className="brand-mark" />
         </a>
         <nav className="nav-center" aria-label="Primary">
           <a href="#how-it-works" className="nav-link">How it works</a>

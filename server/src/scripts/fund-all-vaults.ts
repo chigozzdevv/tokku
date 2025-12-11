@@ -110,7 +110,7 @@ async function fundVaultForMarket(
   }
 
   const deltaNumber = Number(delta);
-  const decimals = 9; // WSOL
+  const decimals = 9;
 
   ixs.push(
     createTransferCheckedInstruction(
@@ -176,7 +176,6 @@ async function main() {
 
 main().catch((err) => {
   logger.error({ err }, 'fund-all-vaults script failed');
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 });

@@ -9,12 +9,12 @@ type FaqItem = {
 
 const faqs: FaqItem[] = [
   {
-    question: 'How does Tossr ensure fair outcomes?',
-    answer: 'Tossr combines MagicBlock VRF randomness with a Private Ephemeral Rollup (PER) enclave. The enclave executes the outcome logic, signs an attestation with its measurement and inputs hash, and anchors that commitment to Solana before any reveal. Because the proof is sealed in hardware, results cannot be altered after bets lock.'
+    question: 'How does Tokku ensure fair outcomes?',
+    answer: 'Tokku combines MagicBlock VRF randomness with a Private Ephemeral Rollup (PER) enclave. The enclave executes the outcome logic, signs an attestation with its measurement and inputs hash, and anchors that commitment to Solana before any reveal. Because the proof is sealed in hardware, results cannot be altered after bets lock.'
   },
   {
-    question: 'What makes betting on Tossr different?',
-    answer: 'Unlike Web2 books, Tossr settles rounds with on-chain programs that verify PER attestations and VRF transcripts. Every market uses the same SOL vaults, and anyone can inspect the randomness, enclave measurement, and settlement transaction directly on Solana.'
+    question: 'What makes betting on Tokku different?',
+    answer: 'Unlike Web2 books, Tokku settles rounds with on-chain programs that verify PER attestations and VRF transcripts. Every market uses per-market SOL vaults, and anyone can inspect the randomness, enclave measurement, and settlement transaction directly on Solana.'
   },
   {
     question: 'How fast are payouts?',
@@ -22,7 +22,7 @@ const faqs: FaqItem[] = [
   },
   {
     question: 'What are the fees?',
-    answer: 'Tossr uses MagicBlock Ephemeral Rollups for low-latency execution while anchoring proofs back to Solana. Market-specific house edges are transparently displayed in the odds. There are no hidden fees—what you see is what you get.'
+    answer: 'Tokku uses MagicBlock Ephemeral Rollups for low-latency execution while anchoring proofs back to Solana. Market-specific house edges are transparently displayed in the odds. There are no hidden fees—what you see is what you get.'
   },
   {
     question: 'Can I verify the randomness?',
@@ -53,7 +53,7 @@ export function FaqSection() {
       <div className="container">
         <SectionHeader
           title="Frequently Asked Questions"
-          sub="Everything you need to know about betting on Tossr"
+          sub="Everything you need to know about betting on Tokku"
         />
 
         <div style={{

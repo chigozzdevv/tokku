@@ -55,7 +55,7 @@ async function bootstrap() {
 
     await initializeJobs();
 
-    logger.info(`🚀 TOSSR.gg server running on port ${port}`);
+    logger.info(`🚀 Tokku server running on port ${port}`);
     logger.info(`>> API documentation available at http://localhost:${port}/docs`);
     
   } catch (error: unknown) {

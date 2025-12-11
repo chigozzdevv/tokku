@@ -1,7 +1,7 @@
 {
-  "name": "tosr-server",
+  "name": "tokku-server",
   "version": "1.0.0",
-  "description": "TOSSR.gg - Provably Random Gaming Platform Server",
+  "description": "Tokku - Provably Random Gaming Platform Server",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

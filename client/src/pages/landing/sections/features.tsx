@@ -6,7 +6,7 @@ export function FeaturesSection() {
   return (
     <Section id="features">
       <div className="container">
-        <SectionHeader title="Why Tossr" sub="Provable randomness, transparent odds, and streamlined UX" />
+        <SectionHeader title="Why Tokku" sub="Provable randomness, transparent odds, and streamlined UX" />
         <div className="row" style={{ flexWrap: 'wrap' }}>
           <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35 }} style={{ flex: '1 1 260px' }}>
             <Card>

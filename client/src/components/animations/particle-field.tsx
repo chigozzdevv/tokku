@@ -1,48 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
 
-type Phase = 'field' | 'gather' | 'scatter'
-
 type Particle = {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  r: number
-  tx: number
-  ty: number
+  lane: number
+  u: number
+  baseY: number
+  amp: number
+  speed: number
+  size: number
+  phase: number
 }
 
 const TAU = Math.PI * 2
 
-function createRng(seed = 0xA5F12E31) {
+function createRng(seed = 0xa5f12e31) {
   let s = seed >>> 0
   return () => {
     s ^= s << 13
     s ^= s >>> 17
     s ^= s << 5
-    return ((s >>> 0) / 0xffffffff)
+    return (s >>> 0) / 0xffffffff
   }
 }
 
 export function ParticleField() {
   const [enabled, setEnabled] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const phaseRef = useRef<Phase>('gather')
-  const particlesRef = useRef<Particle[]>([])
   const rafRef = useRef<number | null>(null)
   const centerRef = useRef({ x: 0, y: 0 })
-  const rng = useRef(createRng(0x517cc1))
-  const tRef = useRef(0)
-  const colorRef = useRef<string>('#b9f6c9')
-  const hiddenRef = useRef<boolean>(false)
-  const frameRef = useRef<number>(0)
-  const pausedRef = useRef<boolean>(false)
-  const lastTsRef = useRef<number>(0)
-  const isMobileRef = useRef<boolean>(false)
-  const fpsIntervalRef = useRef<number>(1000 / 45)
-  const prefersReducedRef = useRef<boolean>(false)
+  const rngRef = useRef(createRng(0x517cc1))
+  const colorRef = useRef('#b9f6c9')
+  const hiddenRef = useRef(false)
+  const pausedRef = useRef(false)
+  const lastTsRef = useRef(0)
+  const fpsIntervalRef = useRef(1000 / 45)
+  const prefersReducedRef = useRef(false)
+  const isMobileRef = useRef(false)
+  const particlesRef = useRef<Particle[]>([])
 
-  // Disable particles on small screens and when user prefers reduced motion
   useEffect(() => {
     if (typeof window === 'undefined') return
     const mqMobile = window.matchMedia('(max-width: 640px)')
@@ -59,183 +53,131 @@ export function ParticleField() {
 
   useEffect(() => {
     if (!enabled) return
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d', { alpha: true })!
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d', { alpha: true })
+    if (!ctx) return
     const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
     const setReduced = () => { prefersReducedRef.current = !!mql.matches }
     setReduced()
     mql.addEventListener?.('change', setReduced)
 
+    try {
+      if (window.crypto && 'getRandomValues' in window.crypto) {
+        const buf = new Uint32Array(1)
+        window.crypto.getRandomValues(buf)
+        rngRef.current = createRng(buf[0] || 0x517cc1)
+      } else {
+        const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0
+        rngRef.current = createRng(seed || 0x517cc1)
+      }
+    } catch {
+      const seed = (Date.now() ^ 0x517cc1) >>> 0
+      rngRef.current = createRng(seed)
+    }
+
+    const initParticles = (w: number, h: number) => {
+      const lanes = prefersReducedRef.current || isMobileRef.current ? 3 : 4
+      const particles: Particle[] = []
+      const minDim = Math.min(w, h)
+      const centerY = h * 0.55
+      const bandHeight = minDim * 0.18
+
+      for (let lane = 0; lane < lanes; lane++) {
+        const laneNorm = lanes > 1 ? lane / (lanes - 1) : 0.5
+        const baseY = centerY - bandHeight * 0.7 + laneNorm * bandHeight * 1.4
+        const ampBase = minDim * 0.04 + laneNorm * minDim * 0.03
+        const amp = ampBase * (0.7 + rngRef.current() * 0.6)
+        const countBase = prefersReducedRef.current ? 18 : 26
+        const count = countBase + lane * 4
+
+        for (let i = 0; i < count; i++) {
+          const u = (i + rngRef.current() * 0.9) / count
+          const speed = 0.08 + rngRef.current() * 0.22
+          const size = 0.8 + rngRef.current() * 1.4
+          const phase = rngRef.current() * TAU
+          particles.push({ lane, u, baseY, amp, speed, size, phase })
+        }
+      }
+
+      particlesRef.current = particles
+    }
+
     const onResize = () => {
       const realDpr = window.devicePixelRatio || 1
       const rect = canvas.parentElement?.getBoundingClientRect()
-      const w = Math.floor((rect?.width || window.innerWidth))
-      const h = Math.floor((rect?.height || window.innerHeight))
+      const w = Math.floor(rect?.width || window.innerWidth)
+      const h = Math.floor(rect?.height || window.innerHeight)
       let dpr = Math.min(1.5, realDpr)
-      if (w <= 480 || (w * h) > 1_400_000) dpr = 1
-      isMobileRef.current = w <= 640
-      fpsIntervalRef.current = prefersReducedRef.current || isMobileRef.current ? (1000 / 30) : (1000 / 45)
+      if (w <= 480 || w * h > 1_400_000) dpr = 1
+      isMobileRef.current = w <= 768
+      fpsIntervalRef.current = prefersReducedRef.current || isMobileRef.current ? 1000 / 30 : 1000 / 45
       canvas.width = Math.floor(w * dpr)
       canvas.height = Math.floor(h * dpr)
       canvas.style.width = w + 'px'
       canvas.style.height = h + 'px'
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      centerRef.current = { x: w / 2, y: h / 2 }
+      centerRef.current = { x: w / 2, y: h * 0.55 }
       colorRef.current = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b9f6c9'
-      if (particlesRef.current.length === 0) initParticles(w, h)
-      updateTargets()
-    }
-
-    const initParticles = (w: number, h: number) => {
-      const base = Math.floor((w * h) / 14000)
-      const cap = 300
-      let count = Math.min(cap, base)
-      if (w <= 480) count = Math.floor(count * 0.4)
-      else if (w <= 768) count = Math.floor(count * 0.65)
-      if (prefersReducedRef.current) count = Math.floor(count * 0.5)
-      const arr: Particle[] = []
-      for (let i = 0; i < count; i++) {
-        arr.push({
-          x: rng.current() * w,
-          y: rng.current() * h,
-          vx: (rng.current() - 0.5) * 0.25,
-          vy: (rng.current() - 0.5) * 0.25,
-          r: rng.current() * (isMobileRef.current ? 0.9 : 1.0) + 0.4,
-          tx: 0,
-          ty: 0,
-        })
-      }
-      particlesRef.current = arr
-    }
-
-    const updateTargets = () => {
-      const { x: cx, y: cy } = centerRef.current
-      const n = particlesRef.current.length
-      const radius = Math.min(canvas.width, canvas.height) / (window.devicePixelRatio || 1) * 0.34
-      const rings = Math.max(2, Math.round(Math.sqrt(n) * 0.9))
-      const totalWeight = (rings * (rings + 1)) / 2
-      let idx = 0
-      let placed = 0
-      for (let k = 1; k <= rings; k++) {
-        let count = Math.max(1, Math.round((n * k) / totalWeight))
-        if (k === rings) count = n - placed
-        const r = (radius * k) / rings
-        for (let j = 0; j < count && idx < n; j++) {
-          const theta = (2 * Math.PI * j) / count
-          particlesRef.current[idx].tx = cx + r * Math.cos(theta)
-          particlesRef.current[idx].ty = cy + r * Math.sin(theta)
-          idx++
-        }
-        placed = idx
-      }
-    }
-
-    const vectorField = (x: number, y: number, t: number) => {
-      const s = Math.sin, c = Math.cos
-      const k1 = 0.0009, k2 = 0.0013
-      const a = s(x * k1 + t * 0.6) + c(y * k2 - t * 0.4)
-      const b = c(x * k2 - t * 0.25) - s(y * k1 + t * 0.5)
-      return { x: a, y: b }
+      initParticles(w, h)
     }
 
     const tick = (ts?: number) => {
-      if (hiddenRef.current || pausedRef.current) { rafRef.current = null; return }
+      if (hiddenRef.current || pausedRef.current) {
+        rafRef.current = null
+        return
+      }
       const now = ts ?? performance.now()
-      const fpsInterval = fpsIntervalRef.current
-      if (now - lastTsRef.current < fpsInterval) {
+      const interval = fpsIntervalRef.current
+      if (now - lastTsRef.current < interval) {
         rafRef.current = requestAnimationFrame(tick)
         return
       }
+      const dtMs = now - lastTsRef.current || interval
       lastTsRef.current = now
+      const dt = Math.min(0.05, dtMs / 1000)
+      const t = now * 0.001
       const { x: cx, y: cy } = centerRef.current
       const w = canvas.width / (window.devicePixelRatio || 1)
       const h = canvas.height / (window.devicePixelRatio || 1)
 
-      ctx.globalCompositeOperation = 'source-over'
       ctx.clearRect(0, 0, w, h)
 
       const mint = colorRef.current
       ctx.fillStyle = mint
       ctx.shadowColor = mint
-      ctx.shadowBlur = isMobileRef.current || prefersReducedRef.current ? 1 : 2
+      ctx.shadowBlur = prefersReducedRef.current || isMobileRef.current ? 1 : 3
 
-      tRef.current += 0.016
-      ctx.beginPath()
-      for (const p of particlesRef.current) {
-        if (phaseRef.current === 'gather') {
-          const dx = p.tx - p.x
-          const dy = p.ty - p.y
-          const dist = Math.hypot(dx, dy) + 1e-4
-          const force = Math.min(0.014, 18 / (dist * dist))
-          p.vx += dx * force
-          p.vy += dy * force
-          p.vx *= 0.90
-          p.vy *= 0.90
-        } else if (phaseRef.current === 'field') {
-          const f = vectorField(p.x - cx, p.y - cy, tRef.current)
-          p.vx += f.x * 0.10
-          p.vy += f.y * 0.10
-          p.vx *= 0.978
-          p.vy *= 0.978
-        } else { // scatter
-          const dx = p.x - cx
-          const dy = p.y - cy
-          const dist = Math.hypot(dx, dy) + 1e-4
-          const push = Math.min(0.017, 12 / (dist * 12))
-          p.vx += (dx / dist) * push + (rng.current() - 0.5) * 0.05
-          p.vy += (dy / dist) * push + (rng.current() - 0.5) * 0.05
-          p.vx *= 0.985
-          p.vy *= 0.985
-        }
+      const particles = particlesRef.current
+      const sizeAmp = prefersReducedRef.current ? 0.22 : 0.32
+      const travelFactor = prefersReducedRef.current ? 0.55 : 0.8
 
-        p.x += p.vx
-        p.y += p.vy
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i]
 
-        if (p.x < -5) p.x = w + 5
-        if (p.x > w + 5) p.x = -5
-        if (p.y < -5) p.y = h + 5
-        if (p.y > h + 5) p.y = -5
+        p.u += p.speed * travelFactor * dt
+        if (p.u > 1) p.u -= 1
+        const pathX = p.u * (w + 220) - 110
 
-        ctx.moveTo(p.x + p.r, p.y)
-        ctx.arc(p.x, p.y, p.r, 0, TAU)
-      }
-      ctx.fill()
+        const laneTilt = (p.lane % 2 === 0 ? 1 : -1) * 0.06
+        const baseY = p.baseY + laneTilt * (pathX - cx) * 0.015
 
-      frameRef.current++
-      if (!isMobileRef.current && !prefersReducedRef.current && (frameRef.current & 1) === 0) {
-        ctx.shadowBlur = 0
-        ctx.globalAlpha = 0.18
-        ctx.strokeStyle = mint
-        ctx.lineWidth = 0.5
-        for (let i = 0; i < particlesRef.current.length; i += 10) {
-          const a = particlesRef.current[i]
-          const b = particlesRef.current[(i + 1) % particlesRef.current.length]
-          const c = particlesRef.current[(i + 5) % particlesRef.current.length]
-          if (a && b) {
-            const dx = a.x - b.x, dy = a.y - b.y
-            const d2 = dx*dx + dy*dy
-            if (d2 < 3600) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke() }
-          }
-          if (a && c) {
-            const dx2 = a.x - c.x, dy2 = a.y - c.y
-            const d2b = dx2*dx2 + dy2*dy2
-            if (d2b < 3600) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke() }
-          }
-        }
-        ctx.globalAlpha = 1
+        const waveArg = pathX * 0.018 + t * 1.4 + p.phase
+        const wave = Math.sin(waveArg)
+        const y = baseY + p.amp * wave
+
+        const band = Math.sin((y - cy) * 0.018 - t * 0.8 + p.phase * 0.5)
+        const flicker = Math.sin(t * 1.4 + p.phase + i * 0.11)
+        const pulse = 0.6 + sizeAmp * (band * 0.7 + flicker * 0.3)
+        const r = Math.max(0.4, p.size * pulse * (isMobileRef.current ? 0.85 : 1))
+
+        ctx.beginPath()
+        ctx.arc(pathX, y, r, 0, TAU)
+        ctx.fill()
       }
 
       rafRef.current = requestAnimationFrame(tick)
     }
-
-    const cycle = () => {
-      const order: Phase[] = ['gather', 'field', 'scatter']
-      const next = order[(order.indexOf(phaseRef.current) + 1) % order.length]
-      phaseRef.current = next
-      if (next === 'gather') updateTargets()
-    }
-
-    const interval = window.setInterval(cycle, 3800)
     const onVisibility = () => {
       hiddenRef.current = document.hidden
       if (!hiddenRef.current && !rafRef.current) rafRef.current = requestAnimationFrame(tick)
@@ -255,13 +197,14 @@ export function ParticleField() {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      window.clearInterval(interval)
       io.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('resize', onResize)
+      mql.removeEventListener?.('change', setReduced)
     }
   }, [enabled])
 
   if (!enabled) return null
   return <canvas ref={canvasRef} aria-hidden className="particle-wrap" />
 }
+

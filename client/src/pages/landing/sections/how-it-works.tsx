@@ -16,39 +16,39 @@ const steps = [
 const phases = [
   {
     key: 'prepare',
+    label: 'Phase 1',
     title: 'Round Setup',
-    sub: 'Initialize round, request randomness, collect bets',
+    sub: 'Open a round, bind randomness and accept bets.',
     items: [
-      'New round opens automatically on Tossr Engine',
-      'MagicBlock ER queues a VRF request for the round',
-      'Players place SOL bets via delegated accounts',
-      'Round locks when the countdown expires'
+      'Tokku Engine starts a new round with a countdown.',
+      'MagicBlock ER enqueues a VRF request for that round.',
+      'Players place SOL bets via delegated accounts until lock.',
     ],
-    chips: ['Solana', 'MagicBlock ER', 'MagicBlock VRF']
+    chips: ['Solana', 'MagicBlock ER', 'MagicBlock VRF'],
   },
   {
     key: 'prove',
+    label: 'Phase 2',
     title: 'Attested Generation',
-    sub: 'PER enclave executes outcome logic with sealed inputs',
+    sub: 'Enclave turns randomness and inputs into outcomes.',
     items: [
-      'MagicBlock VRF returns 32-byte randomness to the enclave',
-      'PER runtime computes market outcome from randomness + inputs',
-      'Enclave signs an attestation with measurement & inputs hash',
-      'Commitment recorded inside ER and mirrored to Solana'
+      'MagicBlock VRF delivers 32-byte randomness into the enclave.',
+      'PER runtime derives market outcomes from randomness + inputs.',
+      'Enclave signs an attestation over code measurement and inputs.',
     ],
-    chips: ['MagicBlock PER', 'Attestation']
+    chips: ['MagicBlock PER', 'Attestation'],
   },
   {
     key: 'settle',
+    label: 'Phase 3',
     title: 'Settlement',
-    sub: 'Reveal, verify and settle on Solana',
+    sub: 'Reveal, verify and pay out on Solana.',
     items: [
-      'PER reveals the outcome alongside its attestation',
-      'Solana program verifies randomness, signature and commitment',
-      'Each bet is evaluated and payouts stream in SOL',
-      'Round state anchors back to the base layer ledger'
+      'PER reveals the outcome alongside its attestation.',
+      'Solana program verifies randomness, signature and commitment.',
+      'Winning bets receive SOL payouts and the round finalizes.',
     ],
-    chips: ['Verifier', 'SOL Payouts']
+    chips: ['Verifier', 'SOL Payouts'],
   },
 ]
 
@@ -71,19 +71,25 @@ export function HowItWorksSection() {
           </div>
           <div className="phase-grid">
             {phases.map((p, idx) => (
-              <motion.div key={p.key} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.35 }} transition={{ duration: 0.28, delay: idx * 0.05 }}>
-                <Card className="phase-card">
+              <motion.div
+                key={p.key}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.35 }}
+                transition={{ duration: 0.28, delay: idx * 0.05 }}
+              >
+                <Card className="phase-card card-hover">
                   <div className="phase-head">
-                    <strong>{p.title}</strong>
-                    <div className="chip-grid">
-                      {p.chips.map((c, i) => (
-                        <span key={i} className={c.includes('MagicBlock') ? 'chip chip-accent' : 'chip'}>{c}</span>
-                      ))}
+                    <div className="phase-title-row">
+                      <span className="phase-tag">{p.label}</span>
+                      <strong className="phase-title">{p.title}</strong>
                     </div>
+                    <div className="phase-sub meta">{p.sub}</div>
                   </div>
-                  <div className="phase-sub meta">{p.sub}</div>
                   <ul className="phase-list">
-                    {p.items.map((it, i) => (<li key={i}>{it}</li>))}
+                    {p.items.map((it, i) => (
+                      <li key={i}>{it}</li>
+                    ))}
                   </ul>
                 </Card>
               </motion.div>

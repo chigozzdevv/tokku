@@ -44,11 +44,7 @@ export function LandingPage() {
       <footer className="site-footer">
         <div className="container footer-inner">
           <div className="footer-brand">
-            <img src="/tokku-logo.png" alt="Tokku" style={{ height: '28px', width: '28px' }} />
-            <div>
-              <strong style={{ fontSize: '1rem', letterSpacing: '0.02em' }}>tokku</strong>
-              <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>MagicBlock PER + VRF on Solana</div>
-            </div>
+            <img src="/tokku-logo.png" alt="Tokku" style={{ height: '64px', width: 'auto' }} />
           </div>
           <nav className="footer-nav">
             <a href="#how-it-works">How it works</a>

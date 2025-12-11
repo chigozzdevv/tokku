@@ -7,9 +7,18 @@ import { config } from './env';
 import { verifyJWT } from '@/utils/auth';
 
 export async function registerPlugins(app: any) {
-  // CORS
+  const allowedOrigins = config.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+
   await app.register(fastifyCors, {
-    origin: config.CORS_ORIGIN,
+    origin: (origin, cb) => {
+      if (!origin) {
+        return cb(null, true);
+      }
+      if (allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      }
+      return cb(new Error('Origin not allowed by CORS'), false);
+    },
     credentials: true,
   });
 
@@ -44,7 +53,7 @@ export async function registerPlugins(app: any) {
   await app.register(fastifySwagger, {
     openapi: {
       info: {
-        title: 'TOSSR.gg API',
+        title: 'Tokku API',
         description: 'Provably Random Gaming Platform',
         version: '1.0.0',
       },

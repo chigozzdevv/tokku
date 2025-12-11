@@ -86,7 +86,7 @@ function LoadingScreen() {
   return (
     <div className="loading-screen">
       <div className="loading-spinner" />
-      <span>Loading Tossr…</span>
+      <span>Loading Tokku…</span>
     </div>
   )
 }

@@ -69,7 +69,7 @@ export function MarketDetailPage() {
           <div>
             <span className="dashboard-market-chip large">{market.type.replace(/_/g, ' ')}</span>
             <h1 className="dashboard-title">{market.name}</h1>
-            <p className="dashboard-subtitle">{typeof market.config === 'string' ? 'Configurable attested market' : 'Live Solana market powered by Tossr engine.'}</p>
+            <p className="dashboard-subtitle">{typeof market.config === 'string' ? 'Configurable attested market' : 'Live Solana market powered by Tokku engine.'}</p>
           </div>
           <div className="dashboard-market-hero-metrics">
             <div>
