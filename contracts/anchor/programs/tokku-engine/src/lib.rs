@@ -647,6 +647,58 @@ pub mod tokku_engine {
         Ok(())
     }
 
+    pub fn refund_bet(ctx: Context<RefundBet>) -> Result<()> {
+        let round = &ctx.accounts.round;
+        require_keys_eq!(
+            ctx.accounts.market.admin,
+            ctx.accounts.admin.key(),
+            ErrorCode::Unauthorized
+        );
+        require_keys_eq!(
+            ctx.accounts.market.mint,
+            ctx.accounts.mint.key(),
+            ErrorCode::Unauthorized
+        );
+        require!(
+            round.status == RoundStatus::Locked as u8,
+            ErrorCode::InvalidState
+        );
+
+        let bet = &mut ctx.accounts.bet;
+        require!(!bet.settled, ErrorCode::AlreadySettled);
+
+        let refund_amount = bet.stake;
+        if refund_amount > 0 {
+            let decimals = ctx.accounts.mint.decimals;
+            let market_key = ctx.accounts.market.key();
+            let seeds = &[VAULT_SEED, market_key.as_ref()];
+            let (_vault_pda, bump) = Pubkey::find_program_address(seeds, ctx.program_id);
+            let signer_slice: &[&[u8]] = &[VAULT_SEED, market_key.as_ref(), &[bump]];
+            let signer_seeds: &[&[&[u8]]] = &[&signer_slice];
+
+            let cpi_accounts = TransferChecked {
+                from: ctx.accounts.vault_token.to_account_info(),
+                to: ctx.accounts.user_token.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                authority: ctx.accounts.vault_authority.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer_seeds,
+            );
+            token::transfer_checked(cpi_ctx, refund_amount, decimals)?;
+        }
+
+        bet.settled = true;
+        bet.won = false;
+        bet.payout = refund_amount;
+
+        let round_mut = &mut ctx.accounts.round;
+        round_mut.unsettled_bets = round_mut.unsettled_bets.saturating_sub(1);
+        Ok(())
+    }
+
     pub fn init_vault(_ctx: Context<InitVault>) -> Result<()> {
         Ok(())
     }
@@ -1328,6 +1380,40 @@ pub struct PlaceBet<'info> {
 
 #[derive(Accounts)]
 pub struct SettleBet<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub market: Account<'info, Market>,
+    #[account(mut, seeds = [ROUND_SEED, market.key().as_ref(), &round.number.to_le_bytes()], bump)]
+    pub round: Account<'info, Round>,
+    #[account(mut, seeds = [BET_SEED, round.key().as_ref(), bet.user.as_ref()], bump)]
+    pub bet: Account<'info, Bet>,
+    #[account(seeds = [VAULT_SEED, market.key().as_ref()], bump)]
+    /// CHECK: Program-derived address used as vault authority; seeds verified by Anchor
+    pub vault_authority: AccountInfo<'info>,
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = vault_authority,
+    )]
+    pub vault_token: Account<'info, TokenAccount>,
+    #[account(
+        init_if_needed,
+        payer = admin,
+        associated_token::mint = mint,
+        associated_token::authority = user,
+    )]
+    pub user_token: Account<'info, TokenAccount>,
+    #[account(address = bet.user)]
+    /// CHECK: Address constraint ensures this is the bet.user
+    pub user: UncheckedAccount<'info>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RefundBet<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     pub market: Account<'info, Market>,

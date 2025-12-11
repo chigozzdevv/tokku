@@ -10,7 +10,7 @@ export async function registerPlugins(app: any) {
   const allowedOrigins = config.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
 
   await app.register(fastifyCors, {
-    origin: (origin, cb) => {
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) {
         return cb(null, true);
       }

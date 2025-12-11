@@ -10,6 +10,7 @@ export const DISCRIMINATORS = {
   PLACE_BET: getAnchorDiscriminator('place_bet'),
   LOCK_ROUND: getAnchorDiscriminator('lock_round'),
   SETTLE_BET: getAnchorDiscriminator('settle_bet'),
+  REFUND_BET: getAnchorDiscriminator('refund_bet'),
   SETTLE_ROUND: getAnchorDiscriminator('settle_round'),
   COMMIT_OUTCOME_HASH: getAnchorDiscriminator('commit_outcome_hash'),
   REVEAL_OUTCOME_NUMERIC: getAnchorDiscriminator('reveal_outcome_numeric'),

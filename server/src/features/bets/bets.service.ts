@@ -9,8 +9,11 @@ import { config } from '@/config/env';
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { getMarketConfig } from '@/utils/market-config';
+import { getAdminKeypair } from '@/config/admin-keypair';
 import bs58 from 'bs58';
 import { DISCRIMINATORS } from '@/utils/anchor-discriminators';
+import { Types } from 'mongoose';
+
 const tokkuProgram = new TokkuProgramService();
 
 
@@ -431,35 +434,94 @@ export class BetsService {
   }
 
   async getBetStats(userId?: string, marketId?: string) {
-    const where: any = {};
-    if (userId) where.userId = userId;
-    if (marketId) where.marketId = marketId;
+    const match: any = {};
+    if (userId) match.userId = new Types.ObjectId(userId);
+    if (marketId) match.marketId = new Types.ObjectId(marketId);
 
-    const [totalBets, wonBets, totalStake, totalPayout, pendingBets] = await Promise.all([
-      Bet.countDocuments(where),
-      Bet.countDocuments({ ...where, status: 'WON' }),
-      Bet.aggregate([{ $match: where }, { $group: { _id: null, total: { $sum: '$stake' } } }]),
-      Bet.aggregate([{ $match: { ...where, status: 'WON' } }, { $group: { _id: null, total: { $sum: '$payout' } } }]),
-      Bet.countDocuments({ ...where, status: 'PENDING' }),
+    const [totalBets, wonBets, totalStakeAgg, totalPayoutAgg, pendingBets] = await Promise.all([
+      Bet.countDocuments(match),
+      Bet.countDocuments({ ...match, status: BetStatus.WON }),
+      Bet.aggregate([{ $match: match }, { $group: { _id: null, total: { $sum: '$stake' } } }]),
+      Bet.aggregate([{ $match: { ...match, status: BetStatus.WON } }, { $group: { _id: null, total: { $sum: '$payout' } } }]),
+      Bet.countDocuments({ ...match, status: BetStatus.PENDING }),
     ]);
-
-    const winRate = totalBets > 0 ? (wonBets / totalBets) * 100 : 0;
-    const totalStaked = Number(totalStake[0]?.total || 0);
-    const totalPaid = Number(totalPayout[0]?.total || 0);
+    const totalStaked = Number(totalStakeAgg[0]?.total || 0);
+    const totalPaid = Number(totalPayoutAgg[0]?.total || 0);
     const profitLoss = totalPaid - totalStaked;
 
-    return { totalBets, wonBets, pendingBets, winRate: Math.round(winRate * 100) / 100, totalStaked, totalPaid, profitLoss };
+    const winRateFraction = totalBets > 0 ? wonBets / totalBets : 0;
+    const winRatePct = Math.round(winRateFraction * 10000) / 100;
+
+    return {
+      totalBets,
+      wonBets,
+      pendingBets,
+      // Fraction 0–1 for client charts/UI
+      winRate: winRateFraction,
+      // Human-friendly percentage for any consumers that want it
+      winRatePct,
+      // Lamports totals (client converts to SOL)
+      totalStake: totalStaked,
+      totalPayout: totalPaid,
+      // Backwards-compatible keys if anything expects old naming
+      totalStaked,
+      totalPaid,
+      profitLoss,
+    };
   }
 
   async refundBets(roundId: string, reason: string) {
-    const bets = await Bet.find({ roundId, status: BetStatus.PENDING }).lean();
+    const round = await Round.findById(roundId).populate({ path: 'marketId', model: 'Market' }).lean();
+    if (!round) {
+      throw new NotFoundError('Round');
+    }
+
+    const marketCfg = getMarketConfig((round as any).marketId.config as unknown);
+    if (!marketCfg.mintAddress) {
+      throw new ValidationError('Missing mintAddress in market config');
+    }
+
+    const adminKeypair = getAdminKeypair();
+    const marketPubkey = new PublicKey(marketCfg.solanaAddress);
+    const mint = new PublicKey(marketCfg.mintAddress);
+
+    const bets = await Bet.find({ roundId, status: BetStatus.PENDING })
+      .populate({ path: 'userId', select: 'walletAddress', model: 'User' })
+      .lean();
+
     const refunds = await Promise.all(
       bets.map(async (bet: any) => {
+        const wallet = bet.userId?.walletAddress;
+        if (wallet) {
+          try {
+            const userPk = new PublicKey(wallet);
+            await tokkuProgram.refundBet(
+              marketPubkey,
+              (round as any).roundNumber,
+              userPk,
+              mint,
+              adminKeypair
+            );
+            logger.info({ betId: bet._id, roundId }, 'On-chain refund completed via admin refund endpoint');
+          } catch (err: any) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error({ betId: bet._id, roundId, error: msg }, 'On-chain refund failed via admin refund endpoint');
+          }
+        } else {
+          logger.error({ betId: bet._id, roundId }, 'Skipping on-chain refund via admin endpoint: missing wallet');
+        }
+
         await Bet.updateOne({ _id: bet._id }, { $set: { status: BetStatus.REFUNDED, payout: bet.stake } });
-        logger.info(`Bet refunded: ${bet._id} - Reason: ${reason}`);
+        logger.info({ betId: bet._id, roundId, reason }, 'Bet refunded in database');
         return { betId: bet._id.toString(), stake: Number(bet.stake) };
       })
     );
+
+    await Round.updateOne(
+      { _id: roundId },
+      { $set: { status: RoundStatus.FAILED, settledAt: new Date() } }
+    );
+
     return refunds;
   }
 

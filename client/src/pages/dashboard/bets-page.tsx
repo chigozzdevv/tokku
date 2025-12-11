@@ -22,7 +22,15 @@ export function BetsPage() {
           betsService.stats(),
         ])
         setBets(items)
-        setStats(metrics as BetStats)
+        const totalStake = (metrics as any).totalStake ?? (metrics as any).totalStaked ?? 0
+        const totalPayout = (metrics as any).totalPayout ?? (metrics as any).totalPaid ?? 0
+        const winRate = typeof (metrics as any).winRate === 'number' ? (metrics as any).winRate : 0
+        setStats({
+          totalBets: (metrics as any).totalBets ?? 0,
+          totalStake,
+          totalPayout,
+          winRate,
+        })
       } catch (err) {
         console.error(err)
         setError('Unable to load bets')

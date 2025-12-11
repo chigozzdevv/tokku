@@ -484,6 +484,73 @@ export class TokkuProgramService {
     return signature;
   }
 
+  async refundBet(
+    marketId: PublicKey,
+    roundNumber: number,
+    userPublicKey: PublicKey,
+    mint: PublicKey,
+    adminKeypair: Keypair
+  ): Promise<string> {
+    const roundNumberBuffer = Buffer.alloc(8);
+    roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
+
+    const [roundPda] = PublicKey.findProgramAddressSync(
+      [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
+      TOKKU_PROGRAM_ID
+    );
+
+    const [betPda] = PublicKey.findProgramAddressSync(
+      [BET_SEED, roundPda.toBuffer(), userPublicKey.toBuffer()],
+      TOKKU_PROGRAM_ID
+    );
+
+    const [vaultPda] = PublicKey.findProgramAddressSync(
+      [VAULT_SEED, marketId.toBuffer()],
+      TOKKU_PROGRAM_ID
+    );
+
+    const userTokenAccount = await getAssociatedTokenAddress(
+      mint,
+      userPublicKey
+    );
+
+    const vaultTokenAccount = await getAssociatedTokenAddress(
+      mint,
+      vaultPda,
+      true
+    );
+
+    const refundBetData = Buffer.from(DISCRIMINATORS.REFUND_BET);
+
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: adminKeypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: marketId, isSigner: false, isWritable: false },
+        { pubkey: roundPda, isSigner: false, isWritable: true },
+        { pubkey: betPda, isSigner: false, isWritable: true },
+        { pubkey: vaultPda, isSigner: false, isWritable: false },
+        { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: userTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: userPublicKey, isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: TOKKU_PROGRAM_ID,
+      data: refundBetData,
+    });
+
+    const transaction = new Transaction().add(instruction);
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = adminKeypair.publicKey;
+
+    const signature = await this.sendAndConfirm(this.connection, transaction, [adminKeypair], 'finalized');
+    logger.info({ signature, betPda: betPda.toString() }, 'Bet refunded on-chain');
+    return signature;
+  }
+
   async openRound(
     marketId: PublicKey,
     roundNumber: number,

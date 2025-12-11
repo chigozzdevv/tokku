@@ -21,11 +21,20 @@ export async function marketsRoutes(fastify: FastifyInstance) {
                 type: 'array',
                 items: {
                   type: 'object',
+                  additionalProperties: true,
                   properties: {
                     id: { type: 'string' },
                     name: { type: 'string' },
                     type: { type: 'string' },
                     isActive: { type: 'boolean' },
+                    _count: {
+                      type: 'object',
+                      properties: {
+                        rounds: { type: 'number' },
+                        bets: { type: 'number' },
+                      },
+                      additionalProperties: false,
+                    },
                   },
                 },
               },
