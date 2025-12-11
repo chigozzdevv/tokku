@@ -492,6 +492,7 @@ export class BetsService {
     const refunds = await Promise.all(
       bets.map(async (bet: any) => {
         const wallet = bet.userId?.walletAddress;
+        let refunded = false;
         if (wallet) {
           try {
             const userPk = new PublicKey(wallet);
@@ -502,6 +503,7 @@ export class BetsService {
               mint,
               adminKeypair
             );
+            refunded = true;
             logger.info({ betId: bet._id, roundId }, 'On-chain refund completed via admin refund endpoint');
           } catch (err: any) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -511,9 +513,13 @@ export class BetsService {
           logger.error({ betId: bet._id, roundId }, 'Skipping on-chain refund via admin endpoint: missing wallet');
         }
 
-        await Bet.updateOne({ _id: bet._id }, { $set: { status: BetStatus.REFUNDED, payout: bet.stake } });
-        logger.info({ betId: bet._id, roundId, reason }, 'Bet refunded in database');
-        return { betId: bet._id.toString(), stake: Number(bet.stake) };
+        if (refunded) {
+          await Bet.updateOne({ _id: bet._id }, { $set: { status: BetStatus.REFUNDED, payout: bet.stake } });
+          logger.info({ betId: bet._id, roundId, reason }, 'Bet refunded in database after successful on-chain refund');
+          return { betId: bet._id.toString(), stake: Number(bet.stake) };
+        }
+
+        return { betId: bet._id.toString(), stake: 0 };
       })
     );
 

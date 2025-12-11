@@ -7,7 +7,8 @@ import { SettleBetsJobData } from '../queues';
 import { TokkuProgramService } from '@/solana/tokku-program-service';
 import { getMarketConfig } from '@/utils/market-config';
 import { getAdminKeypair } from '@/config/admin-keypair';
-import { PublicKey } from '@solana/web3.js';
+import { config } from '@/config/env';
+import { Connection, PublicKey } from '@solana/web3.js';
 
 const tokkuProgram = new TokkuProgramService();
 
@@ -56,6 +57,17 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
           logger.warn({ roundId, attempt, err: e }, 'Undelegate before settlement failed; retrying');
         }
       }
+    }
+
+    const baseConnection = new Connection(config.SOLANA_RPC_URL);
+    const roundPda = await tokkuProgram.getRoundPda(marketPubkey, (round as any).roundNumber);
+    const roundInfo = await baseConnection.getAccountInfo(roundPda);
+    if (!roundInfo) {
+      throw new Error(`Round account ${roundPda.toBase58()} not found on base after undelegation`);
+    }
+    const owner = roundInfo.owner.toBase58();
+    if (owner !== config.TOKKU_ENGINE_PROGRAM_ID) {
+      throw new Error(`Round account owned by ${owner}, expected ${config.TOKKU_ENGINE_PROGRAM_ID}`);
     }
 
     for (const bet of pendingBets as any[]) {
@@ -150,6 +162,7 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
 
       for (const bet of pending as any[]) {
         const wallet = bet.userId?.walletAddress;
+        let refunded = false;
         if (!wallet || !mint) {
           logger.error({ betId: bet._id, roundId }, 'Skipping on-chain refund: missing wallet or mint');
         } else {
@@ -162,6 +175,7 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
               mint,
               adminKeypair
             );
+            refunded = true;
             logger.info({ betId: bet._id, roundId }, 'On-chain refund completed after settlement failure');
           } catch (refundErr: any) {
             const refundMsg = refundErr instanceof Error ? refundErr.message : String(refundErr);
@@ -169,18 +183,20 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
           }
         }
 
-        await Bet.updateOne(
-          { _id: bet._id },
-          { $set: { status: BetStatus.REFUNDED, payout: Number(bet.stake) } }
-        );
-        logger.info({ betId: bet._id, roundId }, 'Bet marked refunded in database after settlement failure');
+        if (refunded) {
+          await Bet.updateOne(
+            { _id: bet._id },
+            { $set: { status: BetStatus.REFUNDED, payout: Number(bet.stake) } }
+          );
+          logger.info({ betId: bet._id, roundId }, 'Bet marked refunded in database after successful on-chain refund');
+        }
       }
 
       await Round.updateOne(
         { _id: roundId },
         { $set: { status: RoundStatus.FAILED, settledAt: new Date() } }
       );
-      logger.error({ roundId }, 'Round marked FAILED after settlement failure and refunds');
+      logger.error({ roundId }, 'Round marked FAILED after settlement failure and refund attempts');
     }
   }
 }
