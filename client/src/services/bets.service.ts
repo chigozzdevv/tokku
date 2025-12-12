@@ -15,6 +15,11 @@ export type BetRecord = {
   status: string
   createdAt: string
   payout?: number | null
+  txSignature?: string
+  settleTxSignature?: string
+  refundTxSignature?: string
+  settledAt?: string
+  refundedAt?: string
   round?: {
     id: string
     roundNumber: number
@@ -24,6 +29,8 @@ export type BetRecord = {
       type: string
     }
     settledAt?: string
+    revealedAt?: string
+    revealTxHash?: string
   }
 }
 

@@ -39,31 +39,24 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
     const isDelegated = Boolean((round as any).delegateTxHash && !(round as any).undelegateTxHash);
 
     if (isDelegated) {
-      const maxUndelegateAttempts = 3;
-      let undelegated = false;
-      for (let attempt = 0; attempt < maxUndelegateAttempts && !undelegated; attempt++) {
-        try {
-          if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
-          const { erTxHash, baseTxHash } = await tokkuProgram.commitAndUndelegateRoundER(
-            marketPubkey,
-            (round as any).roundNumber,
-            adminKeypair
-          );
-          await Round.updateOne({ _id: roundId }, { $set: { undelegateTxHash: erTxHash, baseLayerUndelegateTxHash: baseTxHash } });
-          logger.info({ roundId, erTxHash, baseTxHash, attempt }, 'Round undelegated before settlement');
-          undelegated = true;
-        } catch (e) {
-          logger.warn({ roundId, attempt, err: e }, 'Undelegate before settlement failed; retrying');
-        }
-      }
+      const { erTxHash, baseTxHash } = await tokkuProgram.commitAndUndelegateRoundER(
+        marketPubkey,
+        (round as any).roundNumber,
+        adminKeypair
+      );
+      await Round.updateOne({ _id: roundId }, { $set: { undelegateTxHash: erTxHash, baseLayerUndelegateTxHash: baseTxHash } });
+      await tokkuProgram.ensureRoundUndelegated(marketPubkey, (round as any).roundNumber, adminKeypair);
+      logger.info({ roundId, erTxHash, baseTxHash }, 'Round undelegated before settlement');
     }
+
+    await tokkuProgram.waitForRoundOutcomeOnBase(marketPubkey, (round as any).roundNumber);
 
     for (const bet of pendingBets as any[]) {
       const won = checkBetWon(bet.selection as any, outcome, (round as any).marketId.type);
       const payout = won ? Number(bet.stake) * Number(bet.odds) : 0;
 
       const userPk = new PublicKey(bet.userId.walletAddress);
-      await tokkuProgram.settleBet(
+      const settleTxSignature = await tokkuProgram.settleBet(
         marketPubkey,
         round.roundNumber,
         userPk,
@@ -71,7 +64,10 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
         adminKeypair
       );
 
-      await Bet.updateOne({ _id: bet._id }, { $set: { status: won ? BetStatus.WON : BetStatus.LOST, payout } });
+      await Bet.updateOne(
+        { _id: bet._id },
+        { $set: { status: won ? BetStatus.WON : BetStatus.LOST, payout, settleTxSignature, settledAt: new Date() } }
+      );
 
       if (won) {
         await updateLeaderboard(String(bet.userId._id ?? bet.userId), Number(bet.stake), payout);
@@ -79,7 +75,7 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
         await LeaderboardEntry.findOneAndUpdate(
           { userId: bet.userId._id ?? bet.userId },
           {
-            $setOnInsert: { userId: bet.userId._id ?? bet.userId, totalBets: 0, totalWon: 0, totalStake: 0, totalPayout: 0, winRate: 0, streak: 0 },
+            $setOnInsert: { userId: bet.userId._id ?? bet.userId, totalWon: 0, totalPayout: 0, winRate: 0, streak: 0 },
             $inc: { totalBets: 1, totalStake: Number(bet.stake) },
           },
           { upsert: true }
@@ -126,6 +122,14 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
     logger.info({ roundId }, 'All bets settled for round');
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
+    if (isRetryableSettlementError(errorMessage)) {
+      logger.warn({ roundId, error: errorMessage }, 'Bet settlement not ready; will retry');
+      throw err;
+    }
+    if (!isOnchainTxError(errorMessage)) {
+      logger.error({ roundId, error: errorMessage }, 'Bet settlement failed (non-chain); will retry');
+      throw err;
+    }
     logger.error({ roundId, error: errorMessage }, 'Bet settlement failed, attempting refunds');
 
     const round = await Round.findById(roundId).populate({ path: 'marketId', model: 'Market' }).lean();
@@ -148,15 +152,24 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
       const marketPubkey = new PublicKey(marketCfg.solanaAddress);
       const mint = marketCfg.mintAddress ? new PublicKey(marketCfg.mintAddress) : null;
 
+      try {
+        await tokkuProgram.ensureRoundUndelegated(marketPubkey, (round as any).roundNumber, adminKeypair);
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        logger.error({ roundId, error: msg }, 'Skipping on-chain refunds: round is still delegated');
+        throw e;
+      }
+
       for (const bet of pending as any[]) {
         const wallet = bet.userId?.walletAddress;
         let refunded = false;
+        let refundTxSignature: string | undefined;
         if (!wallet || !mint) {
           logger.error({ betId: bet._id, roundId }, 'Skipping on-chain refund: missing wallet or mint');
         } else {
           try {
             const userPk = new PublicKey(wallet);
-            await tokkuProgram.refundBet(
+            refundTxSignature = await tokkuProgram.refundBet(
               marketPubkey,
               (round as any).roundNumber,
               userPk,
@@ -174,7 +187,7 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
         if (refunded) {
           await Bet.updateOne(
             { _id: bet._id },
-            { $set: { status: BetStatus.REFUNDED, payout: Number(bet.stake) } }
+            { $set: { status: BetStatus.REFUNDED, payout: Number(bet.stake), refundTxSignature, refundedAt: new Date() } }
           );
           logger.info({ betId: bet._id, roundId }, 'Bet marked refunded in database after successful on-chain refund');
         }
@@ -187,6 +200,28 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
       logger.error({ roundId }, 'Round marked FAILED after settlement failure and refund attempts');
     }
   }
+}
+
+function isRetryableSettlementError(message: string): boolean {
+  const msg = (message || '').toLowerCase();
+  return (
+    msg.includes('outcomenotrevealed') ||
+    msg.includes('outcome not revealed') ||
+    msg.includes('0x1787') ||
+    msg.includes('outcome not available on base') ||
+    msg.includes('instruction modified data of an account it does not own') ||
+    msg.includes('still delegated')
+  );
+}
+
+function isOnchainTxError(message: string): boolean {
+  const msg = (message || '').toLowerCase();
+  return (
+    msg.includes('simulation failed') ||
+    msg.includes('transaction simulation failed') ||
+    msg.includes('sendtransactionerror') ||
+    msg.includes('custom program error')
+  );
 }
 
 function checkBetWon(selection: any, outcome: any, marketType: string): boolean {
@@ -247,7 +282,7 @@ async function updateLeaderboard(userId: string, stake: number, payout: number) 
   await LeaderboardEntry.findOneAndUpdate(
     { userId },
     {
-      $setOnInsert: { userId, totalBets: 0, totalWon: 0, totalStake: 0, totalPayout: 0, winRate: 0, streak: 0 },
+      $setOnInsert: { userId, winRate: 0, streak: 0 },
       $inc: { totalBets: 1, totalWon: 1, totalStake: stake, totalPayout: payout },
     },
     { upsert: true }

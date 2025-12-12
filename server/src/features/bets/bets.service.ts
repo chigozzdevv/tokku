@@ -144,35 +144,6 @@ export class BetsService {
 
     logger.error({ userId, roundId, txSignature, betPda }, 'Bet confirmation failed: on-chain bet account not found');
     throw new ValidationError('Bet transaction not confirmed on-chain; please try again');
-
-    const cfg = getMarketConfig((round.marketId as any).config as unknown) as any;
-    const houseEdgeBps: number = typeof cfg?.houseEdgeBps === 'number' ? cfg.houseEdgeBps : 0;
-
-    const marketType = ((round.marketId as any).type) as MarketType;
-    const selectionToUse = selection;
-
-    const bet = await Bet.create({
-      userId,
-      roundId,
-      marketId: round.marketId,
-      selection: selectionToUse,
-      stake,
-      odds: this.calculateOdds(selectionToUse, marketType, houseEdgeBps),
-      status: BetStatus.PENDING,
-      txSignature,
-    });
-
-    await redis.set(cacheKey, (bet as any).id || (bet as any)._id.toString(), 'EX', 86400);
-    await redis.hset(
-      redisKeys.roundBets(roundId),
-      (bet as any).id || (bet as any)._id.toString(),
-      JSON.stringify({ ...bet.toObject?.() || bet, txSignature, betPda })
-    );
-    await redis.incr(redisKeys.betCount(roundId));
-
-    logger.info({ betId: (bet as any).id || (bet as any)._id.toString(), userId, roundId, txSignature, betPda }, 'Bet confirmed');
-
-    return { ...(bet.toObject?.() || bet), stake: Number(bet.stake), txSignature, betPda } as any;
   }
 
   private encodeSelection(selection: any, marketType: MarketType): { kind: number; a: number; b: number; c: number } {
@@ -327,7 +298,7 @@ export class BetsService {
 
     const [bets, total] = await Promise.all([
       Bet.find(where)
-        .populate({ path: 'roundId', select: 'id roundNumber status settledAt marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
+        .populate({ path: 'roundId', select: 'id roundNumber status settledAt revealedAt revealTxHash marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -338,6 +309,7 @@ export class BetsService {
     return {
       items: bets.map((bet: any) => ({
         ...bet,
+        id: String(bet.id ?? bet._id),
         stake: Number(bet.stake),
         payout: bet.payout != null ? Number(bet.payout) : null,
       })),
@@ -353,17 +325,17 @@ export class BetsService {
     let bets: any[];
     if (userId) {
       bets = await Bet.find({ roundId, userId })
-        .populate({ path: 'roundId', select: 'id roundNumber status marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
+        .populate({ path: 'roundId', select: 'id roundNumber status settledAt revealedAt revealTxHash marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
         .sort({ createdAt: -1 })
         .lean();
     } else {
       bets = await Bet.find({ roundId })
         .populate({ path: 'userId', select: 'id walletAddress', model: 'User' })
-        .populate({ path: 'roundId', select: 'id roundNumber status marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
+        .populate({ path: 'roundId', select: 'id roundNumber status settledAt revealedAt revealTxHash marketId', populate: { path: 'marketId', select: 'name type' }, model: 'Round' })
         .sort({ createdAt: -1 })
         .lean();
     }
-    return bets.map(bet => ({ ...bet, stake: Number(bet.stake), payout: bet.payout != null ? Number(bet.payout) : null }));
+    return bets.map((bet: any) => ({ ...bet, id: String(bet.id ?? bet._id), stake: Number(bet.stake), payout: bet.payout != null ? Number(bet.payout) : null }));
   }
 
   async getBetStats(userId?: string, marketId?: string) {
@@ -426,10 +398,11 @@ export class BetsService {
       bets.map(async (bet: any) => {
         const wallet = bet.userId?.walletAddress;
         let refunded = false;
+        let refundTxSignature: string | undefined;
         if (wallet) {
           try {
             const userPk = new PublicKey(wallet);
-            await tokkuProgram.refundBet(
+            refundTxSignature = await tokkuProgram.refundBet(
               marketPubkey,
               (round as any).roundNumber,
               userPk,
@@ -447,7 +420,10 @@ export class BetsService {
         }
 
         if (refunded) {
-          await Bet.updateOne({ _id: bet._id }, { $set: { status: BetStatus.REFUNDED, payout: bet.stake } });
+          await Bet.updateOne(
+            { _id: bet._id },
+            { $set: { status: BetStatus.REFUNDED, payout: bet.stake, refundTxSignature, refundedAt: new Date() } }
+          );
           logger.info({ betId: bet._id, roundId, reason }, 'Bet refunded in database after successful on-chain refund');
           return { betId: bet._id.toString(), stake: Number(bet.stake) };
         }

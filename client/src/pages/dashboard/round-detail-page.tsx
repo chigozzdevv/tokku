@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { roundsService, type Round } from '@/services/rounds.service'
 import { betsService } from '@/services/bets.service'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
@@ -67,6 +67,7 @@ function normalizeSelection(marketType: string, selection: SelectionState) {
 export function RoundDetailPage() {
   const { roundId } = useParams<{ roundId: string }>()
   const location = useLocation()
+  const navigate = useNavigate()
   const preload = (location.state as { selection?: SelectionState; highlight?: string } | null) ?? null
   const [round, setRound] = useState<Round | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,6 +80,7 @@ export function RoundDetailPage() {
   const [showAllOptions, setShowAllOptions] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmedSig, setConfirmedSig] = useState<string>('')
+  const [sigCopied, setSigCopied] = useState(false)
   type ProbabilitySnapshot = { timestamp: string; probabilities: { selection: any; probability: number; bets: number }[] }
   type ApiSuccess<T> = { success: boolean; data: T }
   const [probabilityHistory, setProbabilityHistory] = useState<ProbabilitySnapshot[]>([])
@@ -652,75 +654,151 @@ export function RoundDetailPage() {
         )}
       </aside>
 
-      {showConfirmModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ width: 'min(720px, 95vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.5rem', boxShadow: '0 18px 48px rgba(0,0,0,0.45)' }}>
-            <h3 className="dashboard-title" style={{ marginBottom: '0.25rem' }}>Bet Confirmed</h3>
-            <p className="dashboard-subtitle">Your bet was submitted successfully. You’ll see the result after the round settles.</p>
-
-            <div style={{ marginTop: '1rem', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '1rem', background: 'rgba(185,246,201,0.06)' }}>
-                <div>
-                  <span className="dashboard-round-stat-label">Market</span>
-                  <div style={{ fontWeight: 700, marginTop: 4 }}>{round.market.name}</div>
-                </div>
-                <div>
-                  <span className="dashboard-round-stat-label">Round</span>
-                  <div style={{ fontWeight: 700, marginTop: 4 }}>#{round.roundNumber}</div>
-                </div>
-                <div>
-                  <span className="dashboard-round-stat-label">Selection</span>
-                  <div style={{ fontWeight: 700, marginTop: 4 }}>{selectedOption?.label ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="dashboard-round-stat-label">Odds</span>
-                  <div style={{ fontWeight: 700, marginTop: 4 }}>{(selectedOption?.odds ?? 0).toFixed(2)}x</div>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '1rem' }}>
-                <div>
-                  <span className="dashboard-round-stat-label">Stake</span>
-                  <div style={{ fontWeight: 800, marginTop: 4 }}>{(Number(stake) || 0).toFixed(4)} SOL</div>
-                </div>
-                <div>
-                  <span className="dashboard-round-stat-label">Potential Win</span>
-                  <div style={{ fontWeight: 800, marginTop: 4, color: '#62df98' }}>{(((Number(stake) || 0) * (selectedOption?.odds ?? 0)) || 0).toFixed(4)} SOL</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '1rem' }}>
-              <span className="dashboard-round-stat-label">Transaction</span>
-              <code className="dashboard-code" style={{ display: 'block', marginTop: '0.4rem', wordBreak: 'break-all' }}>{confirmedSig}</code>
-              <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <a className="link" href={explorerTxUrl} target="_blank" rel="noreferrer">View on Explorer</a>
-                <button
-                  aria-label="Copy transaction hash"
-                  title="Copy transaction hash"
+      {showConfirmModal && round && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(10px) saturate(120%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1.25rem',
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowConfirmModal(false)
+          }}
+        >
+          <div
+            style={{
+              width: 'min(760px, 96vw)',
+              borderRadius: 16,
+              border: '1px solid color-mix(in oklab, var(--border) 75%, var(--accent) 25%)',
+              background: 'linear-gradient(180deg, rgba(185,246,201,0.10), rgba(17,21,19,0.96) 35%, rgba(17,21,19,0.98))',
+              boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0.9rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'flex-start' }}>
+                <div
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    cursor: 'pointer'
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'rgba(185,246,201,0.16)',
+                    border: '1px solid rgba(185,246,201,0.22)',
+                    color: 'var(--accent)',
+                    flex: '0 0 auto',
                   }}
-                  onClick={() => { navigator.clipboard.writeText(confirmedSig).catch(() => {}); }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="9" y="9" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="2"/>
-                    <rect x="5" y="3" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="2"/>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </button>
+                </div>
+                <div>
+                  <div className="dashboard-title" style={{ margin: 0, fontSize: '1.25rem' }}>Bet confirmed</div>
+                  <div className="dashboard-subtitle" style={{ marginTop: 4 }}>Submitted successfully. Results will show after this round settles.</div>
+                </div>
               </div>
+              <button
+                aria-label="Close"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  background: 'rgba(0,0,0,0.15)',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowConfirmModal(false)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.25rem', gap: '0.5rem' }}>
-              <Button variant="primary" onClick={() => { window.location.href = '/app/bets' }}>View Bets</Button>
-              <Button variant="ghost" onClick={() => setShowConfirmModal(false)}>Close</Button>
+            <div style={{ padding: '1.25rem', display: 'grid', gap: '1rem' }}>
+              <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ padding: '1rem', background: 'rgba(185,246,201,0.06)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.9rem' }}>
+                    <div>
+                      <div className="dashboard-round-stat-label">Market</div>
+                      <div style={{ marginTop: 6, fontWeight: 800 }}>{round.market?.name ?? '—'}</div>
+                    </div>
+                    <div>
+                      <div className="dashboard-round-stat-label">Round</div>
+                      <div style={{ marginTop: 6, fontWeight: 800 }}>#{round.roundNumber}</div>
+                    </div>
+                    <div>
+                      <div className="dashboard-round-stat-label">Selection</div>
+                      <div style={{ marginTop: 6, fontWeight: 800 }}>{selectedOption?.label ?? '—'}</div>
+                    </div>
+                    <div>
+                      <div className="dashboard-round-stat-label">Odds</div>
+                      <div style={{ marginTop: 6, fontWeight: 800 }}>{(selectedOption?.odds ?? 0).toFixed(2)}x</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ padding: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.9rem' }}>
+                    <div>
+                      <div className="dashboard-round-stat-label">Stake</div>
+                      <div style={{ marginTop: 6, fontWeight: 900, fontSize: '1.05rem' }}>{(Number(stake) || 0).toFixed(4)} SOL</div>
+                    </div>
+                    <div>
+                      <div className="dashboard-round-stat-label">Potential win</div>
+                      <div style={{ marginTop: 6, fontWeight: 900, fontSize: '1.05rem', color: 'var(--accent-700)' }}>{(((Number(stake) || 0) * (selectedOption?.odds ?? 0)) || 0).toFixed(4)} SOL</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="dashboard-round-stat-label">Transaction</div>
+                <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center' }}>
+                  <code className="dashboard-code" style={{ margin: 0, padding: '0.85rem 0.9rem', wordBreak: 'break-all', borderRadius: 12, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(0,0,0,0.18)' }}>
+                    {confirmedSig}
+                  </code>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <a
+                      className="btn"
+                      href={explorerTxUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ padding: '0.6rem 0.85rem', borderRadius: 12 }}
+                    >
+                      Explorer
+                    </a>
+                    <button
+                      className="btn"
+                      style={{ padding: '0.6rem 0.85rem', borderRadius: 12 }}
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(confirmedSig)
+                          setSigCopied(true)
+                          window.setTimeout(() => setSigCopied(false), 1200)
+                        } catch {}
+                      }}
+                      type="button"
+                    >
+                      {sigCopied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <Button variant="primary" onClick={() => navigate('/app/bets')}>View bets</Button>
+                <Button variant="ghost" onClick={() => setShowConfirmModal(false)}>Close</Button>
+              </div>
             </div>
           </div>
         </div>

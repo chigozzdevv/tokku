@@ -653,9 +653,8 @@ export class RoundsService {
     } catch (e: any) {
       logger.warn({ roundId, error: String(e?.message || e) }, 'Reveal verification failed; continuing to commit and settle');
     }
-
-    await betSettlementQueue.add('settle-bets', { roundId }, { jobId: `settle-${roundId}` });
     await this.commitRoundStateToBase(roundId);
+    await betSettlementQueue.add('settle-bets', { roundId }, { jobId: `settle-${roundId}` });
   }
 
   async commitRoundStateToBase(roundId: string) {

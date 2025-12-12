@@ -11,8 +11,6 @@
     "markets:create": "tsx src/scripts/create-market.ts",
     "markets:mint:sol": "npm run markets:create -- --mint=So11111111111111111111111111111111111111112 --edge=200",
     "seed:market": "tsx src/scripts/seed-market.ts",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "db:seed:markets": "tsx src/scripts/seed-markets.ts",

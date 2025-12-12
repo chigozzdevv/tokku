@@ -578,7 +578,9 @@ pub mod tokku_engine {
             round.status == RoundStatus::Locked as u8,
             ErrorCode::InvalidState
         );
-        require!(round.revealed_at > 0, ErrorCode::OutcomeNotRevealed);
+        let has_revealed_outcome = round.revealed_at > 0
+            || !matches!(round.outcome, OutcomeType::Pending);
+        require!(has_revealed_outcome, ErrorCode::OutcomeNotRevealed);
         require!(round.unsettled_bets == 0, ErrorCode::UnsettledBetsRemain);
         round.status = RoundStatus::Settled as u8;
         Ok(())
@@ -610,7 +612,9 @@ pub mod tokku_engine {
             round.status == RoundStatus::Locked as u8,
             ErrorCode::InvalidState
         );
-        require!(round.revealed_at > 0, ErrorCode::OutcomeNotRevealed);
+        let has_revealed_outcome = round.revealed_at > 0
+            || !matches!(round.outcome, OutcomeType::Pending);
+        require!(has_revealed_outcome, ErrorCode::OutcomeNotRevealed);
 
         let bet = &mut ctx.accounts.bet;
         require!(!bet.settled, ErrorCode::AlreadySettled);
@@ -876,7 +880,9 @@ pub mod tokku_engine {
 
     pub fn settle_community_entry(ctx: Context<SettleCommunityEntry>) -> Result<()> {
         let round = &ctx.accounts.round;
-        require!(round.revealed_at > 0, ErrorCode::OutcomeNotRevealed);
+        let has_revealed_outcome = round.revealed_at > 0
+            || !matches!(round.outcome, OutcomeType::Pending);
+        require!(has_revealed_outcome, ErrorCode::OutcomeNotRevealed);
 
         let final_byte = match round.outcome {
             OutcomeType::Community { final_byte, .. } => final_byte,

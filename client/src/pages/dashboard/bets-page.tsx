@@ -14,6 +14,11 @@ export function BetsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const rpcUrl = (import.meta as any).env?.VITE_SOLANA_RPC_URL as string | undefined
+  const cluster = rpcUrl?.includes('devnet') ? 'devnet' : rpcUrl?.includes('testnet') ? 'testnet' : 'mainnet-beta'
+  const shortSig = (sig?: string) => (sig ? `${sig.slice(0, 4)}…${sig.slice(-4)}` : '—')
+  const txUrl = (sig?: string) => (sig ? `https://explorer.solana.com/tx/${sig}?cluster=${cluster}` : '')
+
   useEffect(() => {
     async function load() {
       try {
@@ -101,6 +106,9 @@ export function BetsPage() {
                   <th>Stake (SOL)</th>
                   <th>Payout (SOL)</th>
                   <th>Placed</th>
+                  <th>Bet Tx</th>
+                  <th>Outcome Tx</th>
+                  <th>Payout Tx</th>
                 </tr>
               </thead>
               <tbody>
@@ -112,6 +120,11 @@ export function BetsPage() {
                   const roundNo = roundDoc?.roundNumber;
                   const marketName = roundDoc?.market?.name ?? roundDoc?.marketId?.name ?? bet.marketId;
                   const status = bet.status;
+                  const betTx = (bet as any).txSignature as string | undefined;
+                  const outcomeTx = roundDoc?.revealTxHash as string | undefined;
+                  const payoutTx = status === 'REFUNDED'
+                    ? ((bet as any).refundTxSignature as string | undefined)
+                    : ((bet as any).settleTxSignature as string | undefined);
                   return (
                   <tr key={bet.id}>
                     <td>{marketName}</td>
@@ -132,6 +145,33 @@ export function BetsPage() {
                     <td>{(bet.stake ?? 0) / 1_000_000_000}</td>
                     <td>{bet.payout ? bet.payout / 1_000_000_000 : 0}</td>
                     <td>{new Date(bet.createdAt).toLocaleString()}</td>
+                    <td>
+                      {betTx ? (
+                        <a href={txUrl(betTx)} target="_blank" rel="noreferrer">
+                          <code className="dashboard-code">{shortSig(betTx)}</code>
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      {outcomeTx ? (
+                        <a href={txUrl(outcomeTx)} target="_blank" rel="noreferrer">
+                          <code className="dashboard-code">{shortSig(outcomeTx)}</code>
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      {payoutTx ? (
+                        <a href={txUrl(payoutTx)} target="_blank" rel="noreferrer">
+                          <code className="dashboard-code">{shortSig(payoutTx)}</code>
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                   </tr>
                 )})}
               </tbody>

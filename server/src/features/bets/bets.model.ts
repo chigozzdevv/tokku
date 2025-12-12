@@ -12,6 +12,10 @@ export interface IBet extends Document {
   status: 'PENDING' | 'WON' | 'LOST' | 'REFUNDED' | 'CANCELLED'
   solanaAddress?: string
   txSignature?: string
+  settleTxSignature?: string
+  refundTxSignature?: string
+  settledAt?: Date
+  refundedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -49,6 +53,10 @@ const betSchema = new Schema<IBet>({
   },
   solanaAddress: { type: String },
   txSignature: { type: String, unique: true, sparse: true },
+  settleTxSignature: { type: String, sparse: true },
+  refundTxSignature: { type: String, sparse: true },
+  settledAt: { type: Date },
+  refundedAt: { type: Date },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

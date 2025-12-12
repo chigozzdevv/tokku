@@ -21,7 +21,6 @@ import {
   delegateBufferPdaFromDelegatedAccountAndOwnerProgram,
   delegationMetadataPdaFromDelegatedAccount,
   delegationRecordPdaFromDelegatedAccount,
-  GetCommitmentSignature,
 } from '@magicblock-labs/ephemeral-rollups-sdk';
 import { ConnectionMagicRouter } from '@magicblock-labs/ephemeral-rollups-sdk';
 import { confirmTransactionHTTP, withRetry } from '@/utils/transaction-confirmation';
@@ -1271,8 +1270,16 @@ export class TokkuProgramService {
     const ix = new TransactionInstruction({ keys, programId: TOKKU_PROGRAM_ID, data: DISCRIMINATORS.COMMIT_ROUND });
     if (this.routerConnection) {
       try {
-        const sig = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
-        return { erTxHash: sig, baseTxHash: sig };
+        const erTxHash = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
+        logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit sent on ER (router)');
+        let baseTxHash = erTxHash;
+        try {
+          baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
+          logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Commit confirmed on base layer');
+        } catch (e: any) {
+          logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Commit base signature lookup failed; continuing');
+        }
+        return { erTxHash, baseTxHash };
       } catch {}
     }
 
@@ -1290,9 +1297,13 @@ export class TokkuProgramService {
 
     logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit sent on ER');
 
-    const baseTxHash = await GetCommitmentSignature(erTxHash, this.erConnection);
-
-    logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Commit confirmed on base layer');
+    let baseTxHash = erTxHash;
+    try {
+      baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
+      logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Commit confirmed on base layer');
+    } catch (e: any) {
+      logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Commit base signature lookup failed; continuing');
+    }
 
     return { erTxHash, baseTxHash };
   }
@@ -1321,8 +1332,16 @@ export class TokkuProgramService {
       let lastErr: unknown;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const sig = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
-          return { erTxHash: sig, baseTxHash: sig };
+          const erTxHash = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
+          logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit and undelegate sent on ER (router)');
+          let baseTxHash = erTxHash;
+          try {
+            baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
+            logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Undelegate confirmed on base layer');
+          } catch (e: any) {
+            logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Undelegate base signature lookup failed; continuing');
+          }
+          return { erTxHash, baseTxHash };
         } catch (err) {
           lastErr = err;
           await this.sleep(400 * (attempt + 1));
@@ -1344,9 +1363,13 @@ export class TokkuProgramService {
 
     logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit and undelegate sent on ER');
 
-    const baseTxHash = await GetCommitmentSignature(erTxHash, this.erConnection);
-
-    logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Undelegate confirmed on base layer');
+    let baseTxHash = erTxHash;
+    try {
+      baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
+      logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Undelegate confirmed on base layer');
+    } catch (e: any) {
+      logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Undelegate base signature lookup failed; continuing');
+    }
 
     return { erTxHash, baseTxHash };
   }
@@ -1580,6 +1603,32 @@ export class TokkuProgramService {
     throw new Error(`Round account ${roundPda.toBase58()} is still delegated after commit/undelegate`);
   }
 
+  async waitForRoundOutcomeOnBase(
+    marketId: PublicKey,
+    roundNumber: number,
+    timeoutMs = 60000,
+    intervalMs = 750,
+  ): Promise<any> {
+    const roundPda = await this.getRoundPda(marketId, roundNumber);
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const info = await this.connection.getAccountInfo(roundPda, 'finalized');
+      if (info && info.owner.equals(TOKKU_PROGRAM_ID) && info.data.length > 0) {
+        const decoded = this.coder.accounts.decode('Round', info.data) as any;
+        const outcome = decoded?.outcome;
+        const revealedAt = Number(decoded?.revealed_at ?? 0);
+        const variantKey = outcome && typeof outcome === 'object' ? Object.keys(outcome)[0] : '';
+        const isPending = Boolean(variantKey && variantKey.toLowerCase() === 'pending');
+        const hasOutcome = Boolean(variantKey && !isPending);
+        const hasRevealed = revealedAt > 0 || hasOutcome;
+        if (hasRevealed && !isPending) return decoded;
+      }
+      await this.sleep(intervalMs);
+    }
+
+    throw new Error(`Round ${roundPda.toBase58()} outcome not available on base within ${timeoutMs}ms`);
+  }
+
   private async waitForAccountInitialization(
     pubkey: PublicKey,
     timeoutMs = 60000,
@@ -1659,6 +1708,59 @@ export class TokkuProgramService {
     } as any);
     await this.confirmWithHttpOnly(this.routerConnection, sig, commitment);
     return sig;
+  }
+
+  private extractLogSignature(logs: string[], prefix: string): string | null {
+    for (const message of logs) {
+      if (message.includes(prefix)) {
+        return message.split(prefix)[1]?.trim() || null;
+      }
+    }
+    return null;
+  }
+
+  private async getCommitmentSignatureFromEr(erTxHash: string, timeoutMs = 60000): Promise<string> {
+    const deadline = Date.now() + timeoutMs;
+
+    let schedulingTx: any = null;
+    while (Date.now() < deadline) {
+      schedulingTx = await this.erConnection
+        .getTransaction(erTxHash, { maxSupportedTransactionVersion: 0 })
+        .catch(() => null);
+      if (schedulingTx?.meta) break;
+      await this.sleep(750);
+    }
+
+    if (!schedulingTx?.meta) {
+      throw new Error('ER scheduling transaction not found or meta is null');
+    }
+
+    const schedulingLogs: string[] = schedulingTx.meta.logMessages ?? [];
+    const scheduledCommitSig = this.extractLogSignature(schedulingLogs, 'ScheduledCommitSent signature: ');
+    if (!scheduledCommitSig) {
+      throw new Error('ScheduledCommitSent signature not found');
+    }
+
+    let commitTx: any = null;
+    while (Date.now() < deadline) {
+      commitTx = await this.erConnection
+        .getTransaction(scheduledCommitSig, { maxSupportedTransactionVersion: 0 })
+        .catch(() => null);
+      if (commitTx?.meta) break;
+      await this.sleep(750);
+    }
+
+    if (!commitTx?.meta) {
+      throw new Error('ER commit transaction not found or meta is null');
+    }
+
+    const commitLogs: string[] = commitTx.meta.logMessages ?? [];
+    const commitmentSig = this.extractLogSignature(commitLogs, 'ScheduledCommitSent signature[0]: ');
+    if (!commitmentSig) {
+      throw new Error('Unable to find commitment signature');
+    }
+
+    return commitmentSig;
   }
 
   async commitRoundState(
