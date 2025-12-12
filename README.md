@@ -1,24 +1,80 @@
-# Tokku — Provably Random Gaming with MagicBlock ER + VRF + TEE
+# Tokku — Provably Random Gaming on Solana
 
-View demo [here](https://youtu.be/vcAsKuCF6Qg)
+View demo [here](https://youtu.be/iLcglduopV8)
 
-Tokku is a provably-fair gaming platform on Solana that combines:
-- MagicBlock Ephemeral Rollups (ER) for low‑latency, gasless UX and fast state commits
-- MagicBlock VRF for verifiable 32‑byte randomness
+Tokku is a provably-fair random betting game on Solana where you predict outcomes in short, timed rounds. It combines:
+- Ephemeral rollups (ER) for low‑latency and fast state commits
+- VRF for verifiable 32‑byte randomness
 - TEE (Trusted Execution Environment) for private outcome generation with attestations
 
 Each betting round follows: Predict → Lock → Reveal → Settle. We use base-first flow for user bets and VRF (to interop with base-native ops like ATA creation), then leverage ER for fast reveal and settlement, and finally anchor state back to Solana base.
+
+## Game Loop
+
+1. Connect wallet
+2. Pick a market (Even/Odd, Last Digit, Pick Range, etc.)
+3. Choose your prediction + stake, then sign the bet transaction
+4. Round locks → outcome is revealed on-chain
+5. Winners are paid automatically (or refunded if something fails)
+6. Verify bet / reveal / payout transactions in Solana Explorer
+
+## Why Tokku is Solana-native
+
+- On-chain rounds and bets use PDAs, so game state is public and deterministic
+- Outcomes are revealed on-chain and settlements/refunds are executed on-chain
+- Token payouts come from a market vault account, so everything is auditable in Explorer
+- Verifiable randomness ensures outcomes are provably fair
+
+## Tokku Platform Overview
+
+### Markets (Game Types)
+
+A market defines how you win.
+
+Examples:
+- Even / Odd
+- Last Digit (0–9)
+- Modulo Three (0, 1, 2)
+- Pick Range (single number or range 1–100)
+- Other markets: patterns, shapes/colors, entropy battle, streak meter, community seed
+
+### Rounds (One Game Session)
+
+Each round follows the same lifecycle:
+1. Predict: betting is open
+2. Lock: betting is closed
+3. Reveal: outcome is published on-chain
+4. Settle: bets are processed and payouts/refunds are sent
+
+### Odds and Payouts
+
+- Harder-to-win predictions pay higher odds; easier predictions pay lower odds.
+- House edge (bps) slightly reduces the “perfectly fair” payout.
+- If you win: `payout = stake × odds`
+- If you lose: payout is 0
+- If refunded: you receive your original stake back
+
+### Funding & Payouts (Vault)
+
+Each market has a program-derived vault (a PDA) that holds liquidity in an associated token account (vault ATA) for that market’s mint. Bets route funds into the vault, and settlement/refunds transfer from the vault back to each user’s token account. The vault is pre-funded by the market operator/admin for payout liquidity. For SOL markets, Tokku uses wrapped SOL (WSOL) token accounts.
+
+### Transparency
+
+Tokku preserves transaction signatures so users can verify:
+- Bet transaction (proof you placed the bet)
+- Outcome/reveal transaction (proof of outcome)
+- Payout/refund transaction (proof funds moved)
 
 ## Monorepo Layout
 
 ```
 .
 ├── client      # React + Vite app (wallet adapter, betting UI)
-├── server      # Fastify API, Jobs, Solana + MagicBlock integration
+├── server      # Fastify API, Jobs, Solana + rollup/VRF/TEE integrations
 └── contracts   # On-chain programs (Anchor) and TEE utilities (Rust)
 ```
 
-## Architecture Overview
+## Technical Architecture Overview
 
 1) Predict (base-first)
 - Client requests a bet transaction from the server and submits on base (SOLANA_RPC_URL). Base-native ops (e.g., minting ATAs) work seamlessly.
@@ -39,10 +95,12 @@ Each betting round follows: Predict → Lock → Reveal → Settle. We use base-
 
 ---
 
-## MagicBlock ER: Where and How We Use It
+## Fast execution path (Ephemeral Rollups)
+
+Tokku can delegate rounds to an ephemeral rollup to reduce latency during lock/reveal, while still anchoring final state back to Solana base.
 
 ### 1) Low‑latency blockhash sourcing and sends (Router → ER → Base fallback)
-Server prefers Magic Router or ER RPC when `useER` is set, falling back to base as needed.
+Server prefers the Router or ER RPC when `useER` is set, falling back to base as needed.
 
 ```ts
 // server/src/solana/tokku-program-service.ts
@@ -104,7 +162,7 @@ const state = erState && !/^0+$/.test(erState.inputsHash || '') ? erState : base
 ```
 
 ### 4) Commit round state back to base after ER reveal
-Commit via ER, then obtain the base‑layer signature from MagicBlock SDK and record both.
+Commit via ER, then obtain the base‑layer signature from the ER SDK and record both.
 
 ```ts
 // server/src/solana/tokku-program-service.ts
@@ -123,7 +181,7 @@ revealTxHash = isDelegated
   : await tokkuProgram.revealOutcome(marketPubkey, round.roundNumber, outcome.Numeric.value, nonce, inputsHash, attestationSig, adminKeypair);
 ```
 
-#### MagicBlock ER Use Cases Summary
+#### ER Use Cases Summary
 - Low‑latency user betting with ER blockhash and Router submit.
 - Round delegation to ER for rapid lock/reveal cycles.
 - Preferential ER state observation for VRF inputsHash.
@@ -132,7 +190,7 @@ revealTxHash = isDelegated
 
 ---
 
-## MagicBlock VRF: Request + Observe
+## Verifiable randomness (VRF): Request + Observe
 
 VRF is requested on ER (or base). The 32‑byte inputsHash is detected by polling ER first.
 
@@ -159,9 +217,9 @@ async requestRandomnessER(marketId, roundNumber, clientSeed, payer, oracleQueue,
 
 ---
 
-## TEE Attestations and Integrity
+## Outcome attestations (TEE)
 
-TEE generates outcomes with VRF randomness (+ chain hash/community seeds). Optional integrity checks and JWT auth use MagicBlock privacy APIs. Local fallback is available for development.
+TEE generates outcomes with VRF randomness (+ chain hash/community seeds). Optional integrity checks and JWT auth are supported. Local fallback is available for development.
 
 ```ts
 // server/src/solana/tee-service.ts
@@ -192,7 +250,7 @@ cd contracts/tee-engine && cargo build
 
 ## Server
 
-Tech: Fastify, TypeScript, MongoDB (Mongoose), Redis, Solana web3.js, MagicBlock ER + VRF.
+Tech: Fastify, TypeScript, MongoDB (Mongoose), Redis, Solana web3.js (with optional ER/VRF integration).
 
 Common scripts:
 ```bash
@@ -204,8 +262,8 @@ npm run build && npm start        # production
 # Utilities
 npm run markets:list
 npm run markets:create
+npm run db:seed:markets
 npm run rounds:check
-npm run demo:bootstrap            # end-to-end ER bet demo
 npm run vrf:request               # trigger VRF for a round
 ```
 
@@ -247,7 +305,7 @@ CORS_ORIGIN=http://localhost:5173
 MONGODB_URI=mongodb://localhost:27017/tokku
 REDIS_URL=redis://localhost:6379
 
-# Solana / MagicBlock
+# Solana / ER / TEE
 SOLANA_RPC_URL=https://api.devnet.solana.com
 SOLANA_WS_URL=wss://api.devnet.solana.com
 EPHEMERAL_RPC_URL=https://devnet-router.magicblock.app
@@ -286,7 +344,22 @@ VITE_ROUND_DURATION_SECONDS=300
 
 ---
 
-## Quick Start
+## Local Development
+
+### Prerequisites
+
+- Node.js >= 20
+- MongoDB running locally
+- Redis running locally
+
+### Environment
+
+```bash
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
+
+### Quick Start
 
 ```bash
 # Server
@@ -294,12 +367,6 @@ cd server && npm i && npm run dev
 
 # Client
 cd ../client && npm i && npm run dev
-```
-
-Optional end‑to‑end ER demo:
-```bash
-cd server
-npm run demo:bootstrap
 ```
 
 ---
