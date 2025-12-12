@@ -1,16 +1,20 @@
-import { Round, connectDatabase, disconnectDatabase } from '@/config/database'
+import { Round, Bet, connectDatabase, disconnectDatabase } from '@/config/database'
 
 async function clearAllRounds() {
   try {
     await connectDatabase()
-    console.log('Deleting all rounds...')
-    
-    const count = await Round.countDocuments()
-    console.log(`Found ${count} rounds to delete`)
-    
-    await Round.deleteMany({})
-    
-    console.log('✓ All rounds cleared!')
+    console.log('Deleting all rounds and bets...')
+
+    const roundCount = await Round.countDocuments()
+    const betCount = await Bet.countDocuments()
+    console.log(`Found ${roundCount} rounds and ${betCount} bets to delete`)
+
+    await Promise.all([
+      Round.deleteMany({}),
+      Bet.deleteMany({}),
+    ])
+
+    console.log('✓ All rounds and bets cleared!')
     console.log('New rounds will be created on next scheduler run')
     
     await disconnectDatabase()

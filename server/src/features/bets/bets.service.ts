@@ -125,7 +125,7 @@ export class BetsService {
     const baseConn = new Connection(config.SOLANA_RPC_URL, { commitment: 'confirmed' });
     const betPdaPk = new PublicKey(betPda);
     let betAccountInfo = await baseConn.getAccountInfo(betPdaPk, 'confirmed');
-    for (let i = 0; !betAccountInfo && i < 8; i++) {
+    for (let i = 0; !betAccountInfo && i < 20; i++) {
       await new Promise(r => setTimeout(r, 250));
       betAccountInfo = await baseConn.getAccountInfo(betPdaPk, 'confirmed');
     }
@@ -141,93 +141,26 @@ export class BetsService {
         selection
       );
     }
-    const txResult = null as any;
-    const toNumber = (value: any) => {
-      if (typeof value === 'number') return value;
-      if (typeof value === 'bigint') return Number(value);
-      if (value && typeof value.toNumber === 'function') {
-        return value.toNumber();
-      }
-      if (value && typeof value.toString === 'function') {
-        const n = Number(value.toString());
-        return Number.isNaN(n) ? 0 : n;
-      }
-      return Number(value ?? 0);
-    };
 
-    if (txResult?.meta?.err) {
-      try {
-        logger.error(
-          {
-            signature: txSignature,
-            error: txResult.meta.err,
-            logs: txResult.meta.logMessages,
-          },
-          'Bet transaction failed with on-chain error'
-        );
-      } catch {}
-      throw new ValidationError('Transaction failed on-chain');
-    }
-
-    let finalStake = Number(stake);
-    let decodedFromTx: { kind: number; a: number; b: number; c: number } | null = null;
-    try {
-      if (txResult) {
-        const message: any = (txResult as any).transaction.message;
-        const instructions: any[] = message?.instructions || [];
-        for (const ix of instructions) {
-          if (!ix?.data) continue;
-          const raw: Uint8Array = typeof ix.data === 'string' ? bs58.decode(ix.data) : Buffer.from(ix.data);
-          if (raw.length >= 8 && Buffer.compare(Buffer.from(raw.subarray(0, 8)), DISCRIMINATORS.PLACE_BET) === 0) {
-            const stakeOffset = 8 + 1 + 2 + 2 + 2;
-            if (raw.length >= stakeOffset + 8) {
-              finalStake = Number(Buffer.from(raw.subarray(stakeOffset, stakeOffset + 8)).readBigUInt64LE(0));
-            }
-            if (raw.length >= 15) {
-              const kind = (raw[8] ?? 0);
-              const a = Buffer.from(raw.subarray(9, 11)).readUInt16LE(0);
-              const b = Buffer.from(raw.subarray(11, 13)).readUInt16LE(0);
-              const c = Buffer.from(raw.subarray(13, 15)).readUInt16LE(0);
-              decodedFromTx = { kind, a, b, c };
-            }
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      logger.warn({ err: e, txSignature }, 'Failed to parse stake from transaction; using client-provided stake');
-    }
-
-    
+    logger.error({ userId, roundId, txSignature, betPda }, 'Bet confirmation failed: on-chain bet account not found');
+    throw new ValidationError('Bet transaction not confirmed on-chain; please try again');
 
     const cfg = getMarketConfig((round.marketId as any).config as unknown) as any;
     const houseEdgeBps: number = typeof cfg?.houseEdgeBps === 'number' ? cfg.houseEdgeBps : 0;
 
     const marketType = ((round.marketId as any).type) as MarketType;
-    const selectionToUse = decodedFromTx ? this.decodeSelection(decodedFromTx, marketType) : selection;
+    const selectionToUse = selection;
 
-    let bet;
-    try {
-      bet = await Bet.create({
-        userId,
-        roundId,
-        marketId: round.marketId,
-        selection: selectionToUse,
-        stake: finalStake,
-        odds: this.calculateOdds(selectionToUse, marketType, houseEdgeBps),
-        status: BetStatus.PENDING,
-        txSignature,
-      });
-    } catch (err: any) {
-      if (err?.code === 11000) {
-        const existing = await Bet.findOne({ txSignature }).lean();
-        if (existing) {
-          await redis.set(cacheKey, (existing as any).id || (existing as any)._id.toString(), 'EX', 86400);
-          return { ...existing, stake: Number(existing.stake), txSignature, betPda } as any;
-        }
-      }
-      throw err;
-    }
+    const bet = await Bet.create({
+      userId,
+      roundId,
+      marketId: round.marketId,
+      selection: selectionToUse,
+      stake,
+      odds: this.calculateOdds(selectionToUse, marketType, houseEdgeBps),
+      status: BetStatus.PENDING,
+      txSignature,
+    });
 
     await redis.set(cacheKey, (bet as any).id || (bet as any)._id.toString(), 'EX', 86400);
     await redis.hset(
@@ -237,7 +170,7 @@ export class BetsService {
     );
     await redis.incr(redisKeys.betCount(roundId));
 
-    logger.info({ betId: (bet as any).id || (bet as any)._id.toString(), userId, roundId, txSignature, betPda }, 'Bet confirmed on-chain');
+    logger.info({ betId: (bet as any).id || (bet as any)._id.toString(), userId, roundId, txSignature, betPda }, 'Bet confirmed');
 
     return { ...(bet.toObject?.() || bet), stake: Number(bet.stake), txSignature, betPda } as any;
   }

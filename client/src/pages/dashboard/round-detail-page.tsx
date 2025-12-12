@@ -205,7 +205,8 @@ export function RoundDetailPage() {
     return round.bets.reduce((sum, bet) => sum + Number(bet.stake || 0), 0) / 1_000_000_000
   }, [round])
 
-
+  const totalBets = round?.bets?.length ?? 0
+  const avgBetSize = totalBets ? totalVolume / totalBets : 0
 
   const showByteInput = selectedOption?.selection?.type === 'community'
   const showEntropySelect = selectedOption?.selection?.type === 'entropy'
@@ -231,16 +232,23 @@ export function RoundDetailPage() {
     setStatus('')
     try {
       const lamports = Math.round(stakeValue * 1_000_000_000)
+      const wsolMint = 'So11111111111111111111111111111111111111112'
+      const mintAddr = (round.market as any)?.config?.mintAddress as string | undefined
+      if (mintAddr === wsolMint) {
+        const balance = await connection.getBalance(wallet.publicKey!)
+        const estimatedFeesLamports = 500000
+        if (balance < lamports + estimatedFeesLamports) {
+          setStatus('Insufficient SOL balance for stake and fees')
+          setSubmitting(false)
+          return
+        }
+      }
       const payloadSelection = normalizeSelection(round.market.type, selection)
       const transactionPayload = await betsService.createTransaction({
         roundId,
         selection: payloadSelection,
         stake: lamports,
       })
-
-      // If round is delegated to ER and mint is WSOL, ensure user's WSOL ATA is funded on base before bet
-      const wsolMint = 'So11111111111111111111111111111111111111112'
-      const mintAddr = (round.market as any)?.config?.mintAddress as string | undefined
       if (round.delegateTxHash && !round.undelegateTxHash && mintAddr === wsolMint) {
         const wsol = new PublicKey(wsolMint)
         const ata = await getAssociatedTokenAddress(wsol, wallet.publicKey!, false)
@@ -391,12 +399,12 @@ export function RoundDetailPage() {
               </div>
               <div className="outcome-card">
                 <span className="outcome-card-label">Total Bets</span>
-                <div className="outcome-card-value">{round._count?.bets ?? 0}</div>
+                <div className="outcome-card-value">{totalBets}</div>
               </div>
               <div className="outcome-card">
                 <span className="outcome-card-label">Avg Bet Size</span>
                 <div className="outcome-card-value">
-                  {round._count?.bets ? (totalVolume / (round._count.bets)).toFixed(4) : '0.0000'} SOL
+                  {totalBets ? avgBetSize.toFixed(4) : '0.0000'} SOL
                 </div>
               </div>
             </div>

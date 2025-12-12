@@ -7,8 +7,7 @@ import { SettleBetsJobData } from '../queues';
 import { TokkuProgramService } from '@/solana/tokku-program-service';
 import { getMarketConfig } from '@/utils/market-config';
 import { getAdminKeypair } from '@/config/admin-keypair';
-import { config } from '@/config/env';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 
 const tokkuProgram = new TokkuProgramService();
 
@@ -57,17 +56,6 @@ async function processBetSettlementJob(job: Job<SettleBetsJobData>) {
           logger.warn({ roundId, attempt, err: e }, 'Undelegate before settlement failed; retrying');
         }
       }
-    }
-
-    const baseConnection = new Connection(config.SOLANA_RPC_URL);
-    const roundPda = await tokkuProgram.getRoundPda(marketPubkey, (round as any).roundNumber);
-    const roundInfo = await baseConnection.getAccountInfo(roundPda);
-    if (!roundInfo) {
-      throw new Error(`Round account ${roundPda.toBase58()} not found on base after undelegation`);
-    }
-    const owner = roundInfo.owner.toBase58();
-    if (owner !== config.TOKKU_ENGINE_PROGRAM_ID) {
-      throw new Error(`Round account owned by ${owner}, expected ${config.TOKKU_ENGINE_PROGRAM_ID}`);
     }
 
     for (const bet of pendingBets as any[]) {

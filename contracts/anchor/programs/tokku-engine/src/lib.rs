@@ -26,11 +26,11 @@ const MIN_LOCK_DURATION: i64 = 5;
 const MAX_PREDICTING_DURATION: i64 = 300;
 
 const TEE_PUBKEY: [u8; 65] = [
-    0x04, 0x5d, 0x46, 0xd0, 0x70, 0x9c, 0x22, 0xee, 0x95, 0x23, 0x9e, 0x90, 0x3e, 0xc5, 0xfe, 0x49,
-    0x29, 0xc3, 0x21, 0x90, 0x8e, 0xa4, 0xa3, 0x57, 0x87, 0xd2, 0xa5, 0xcf, 0xda, 0x27, 0x5a, 0x51,
-    0x16, 0x45, 0x1f, 0x29, 0xb8, 0xcb, 0xff, 0xf2, 0xd5, 0x3f, 0x46, 0xe8, 0xf0, 0xe6, 0x71, 0x8c,
-    0x0d, 0xa8, 0x4e, 0x69, 0x56, 0xf6, 0xbe, 0xf9, 0x1f, 0xc9, 0xbc, 0x7f, 0x0a, 0x3e, 0xe9, 0xb4,
-    0x05,
+    0x04, 0x6d, 0xb8, 0x27, 0x70, 0x35, 0x1b, 0x50, 0x91, 0xf9, 0xa0, 0xab, 0xb5, 0x8b, 0x22, 0xf9,
+    0xae, 0x77, 0xb0, 0x47, 0x72, 0xc8, 0x9e, 0xce, 0xb0, 0x18, 0xc5, 0xff, 0x18, 0x35, 0xfc, 0x7a,
+    0x55, 0x47, 0xce, 0x85, 0x66, 0xe4, 0xa0, 0x7f, 0xd3, 0xf2, 0x58, 0xa7, 0x7f, 0xcd, 0xcd, 0xdf,
+    0x7a, 0x78, 0x70, 0x69, 0x83, 0xcd, 0xd6, 0x48, 0x93, 0xbc, 0xbe, 0x37, 0xe2, 0x4c, 0xd2, 0x1d,
+    0x53,
 ];
 
 #[ephemeral]
@@ -585,7 +585,6 @@ pub mod tokku_engine {
     }
 
     pub fn settle_bet(ctx: Context<SettleBet>) -> Result<()> {
-        let round = &ctx.accounts.round;
         require_keys_eq!(
             ctx.accounts.market.admin,
             ctx.accounts.admin.key(),
@@ -596,6 +595,17 @@ pub mod tokku_engine {
             ctx.accounts.mint.key(),
             ErrorCode::Unauthorized
         );
+        let mut round = load_round_from_account(&ctx.accounts.round)?;
+        let (expected_round_pda, _bump) = Pubkey::find_program_address(
+            &[
+                ROUND_SEED,
+                ctx.accounts.market.key().as_ref(),
+                &round.number.to_le_bytes(),
+            ],
+            ctx.program_id,
+        );
+        require_keys_eq!(expected_round_pda, ctx.accounts.round.key(), ErrorCode::Unauthorized);
+        require_keys_eq!(round.market, ctx.accounts.market.key(), ErrorCode::Unauthorized);
         require!(
             round.status == RoundStatus::Locked as u8,
             ErrorCode::InvalidState
@@ -642,13 +652,12 @@ pub mod tokku_engine {
         bet.won = won;
         bet.payout = payout_amount;
 
-        let round_mut = &mut ctx.accounts.round;
-        round_mut.unsettled_bets = round_mut.unsettled_bets.saturating_sub(1);
+        round.unsettled_bets = round.unsettled_bets.saturating_sub(1);
+        save_round_to_account(&ctx.accounts.round, &round)?;
         Ok(())
     }
 
     pub fn refund_bet(ctx: Context<RefundBet>) -> Result<()> {
-        let round = &ctx.accounts.round;
         require_keys_eq!(
             ctx.accounts.market.admin,
             ctx.accounts.admin.key(),
@@ -659,6 +668,17 @@ pub mod tokku_engine {
             ctx.accounts.mint.key(),
             ErrorCode::Unauthorized
         );
+        let mut round = load_round_from_account(&ctx.accounts.round)?;
+        let (expected_round_pda, _bump) = Pubkey::find_program_address(
+            &[
+                ROUND_SEED,
+                ctx.accounts.market.key().as_ref(),
+                &round.number.to_le_bytes(),
+            ],
+            ctx.program_id,
+        );
+        require_keys_eq!(expected_round_pda, ctx.accounts.round.key(), ErrorCode::Unauthorized);
+        require_keys_eq!(round.market, ctx.accounts.market.key(), ErrorCode::Unauthorized);
         require!(
             round.status == RoundStatus::Locked as u8,
             ErrorCode::InvalidState
@@ -694,8 +714,8 @@ pub mod tokku_engine {
         bet.won = false;
         bet.payout = refund_amount;
 
-        let round_mut = &mut ctx.accounts.round;
-        round_mut.unsettled_bets = round_mut.unsettled_bets.saturating_sub(1);
+        round.unsettled_bets = round.unsettled_bets.saturating_sub(1);
+        save_round_to_account(&ctx.accounts.round, &round)?;
         Ok(())
     }
 
@@ -1156,6 +1176,18 @@ pub struct Round {
     pub revealed_at: i64,
 }
 
+fn load_round_from_account(info: &AccountInfo) -> Result<Round> {
+    let data = info.try_borrow_data().map_err(Error::from)?;
+    let mut slice: &[u8] = &data;
+    Round::try_deserialize(&mut slice).map_err(Error::from)
+}
+
+fn save_round_to_account(info: &AccountInfo, round: &Round) -> Result<()> {
+    let mut data = info.try_borrow_mut_data().map_err(Error::from)?;
+    let mut slice: &mut [u8] = &mut data;
+    round.try_serialize(&mut slice).map_err(Error::from)
+}
+
 #[account]
 pub struct Bet {
     pub user: Pubkey,
@@ -1383,8 +1415,9 @@ pub struct SettleBet<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     pub market: Account<'info, Market>,
-    #[account(mut, seeds = [ROUND_SEED, market.key().as_ref(), &round.number.to_le_bytes()], bump)]
-    pub round: Account<'info, Round>,
+    #[account(mut)]
+    /// CHECK: Round PDA is validated in handler via seeds and deserialization
+    pub round: AccountInfo<'info>,
     #[account(mut, seeds = [BET_SEED, round.key().as_ref(), bet.user.as_ref()], bump)]
     pub bet: Account<'info, Bet>,
     #[account(seeds = [VAULT_SEED, market.key().as_ref()], bump)]
@@ -1417,8 +1450,9 @@ pub struct RefundBet<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     pub market: Account<'info, Market>,
-    #[account(mut, seeds = [ROUND_SEED, market.key().as_ref(), &round.number.to_le_bytes()], bump)]
-    pub round: Account<'info, Round>,
+    #[account(mut)]
+    /// CHECK: Round PDA is validated in handler via seeds and deserialization
+    pub round: AccountInfo<'info>,
     #[account(mut, seeds = [BET_SEED, round.key().as_ref(), bet.user.as_ref()], bump)]
     pub bet: Account<'info, Bet>,
     #[account(seeds = [VAULT_SEED, market.key().as_ref()], bump)]
