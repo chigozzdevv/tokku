@@ -10,8 +10,6 @@ import { PublicKey, Connection } from "@solana/web3.js";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 import { getMarketConfig } from "@/utils/market-config";
 import { getAdminKeypair } from "@/config/admin-keypair";
-import bs58 from "bs58";
-import { DISCRIMINATORS } from "@/utils/anchor-discriminators";
 import { Types } from "mongoose";
 
 const tokkuProgram = new TokkuProgramService();
