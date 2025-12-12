@@ -6,7 +6,7 @@ import {
   Keypair,
   SystemProgram,
   SYSVAR_SLOT_HASHES_PUBKEY,
-} from '@solana/web3.js';
+} from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
@@ -14,23 +14,26 @@ import {
   createAssociatedTokenAccountInstruction,
   createSyncNativeInstruction,
   NATIVE_MINT,
-} from '@solana/spl-token';
+} from "@solana/spl-token";
 import {
   MAGIC_CONTEXT_ID as SDK_MAGIC_CONTEXT_ID,
   MAGIC_PROGRAM_ID as SDK_MAGIC_PROGRAM_ID,
   delegateBufferPdaFromDelegatedAccountAndOwnerProgram,
   delegationMetadataPdaFromDelegatedAccount,
   delegationRecordPdaFromDelegatedAccount,
-} from '@magicblock-labs/ephemeral-rollups-sdk';
-import { ConnectionMagicRouter } from '@magicblock-labs/ephemeral-rollups-sdk';
-import { confirmTransactionHTTP, withRetry } from '@/utils/transaction-confirmation';
-import { config } from '@/config/env';
-import { logger } from '@/utils/logger';
-import { DISCRIMINATORS } from '@/utils/anchor-discriminators';
-import { BorshCoder, Idl } from '@coral-xyz/anchor';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+} from "@magicblock-labs/ephemeral-rollups-sdk";
+import { ConnectionMagicRouter } from "@magicblock-labs/ephemeral-rollups-sdk";
+import {
+  confirmTransactionHTTP,
+  withRetry,
+} from "@/utils/transaction-confirmation";
+import { config } from "@/config/env";
+import { logger } from "@/utils/logger";
+import { DISCRIMINATORS } from "@/utils/anchor-discriminators";
+import { BorshCoder, Idl } from "@coral-xyz/anchor";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,17 +42,21 @@ const TOKKU_PROGRAM_ID = new PublicKey(config.TOKKU_ENGINE_PROGRAM_ID);
 const DELEGATION_PROGRAM_PK = new PublicKey(config.DELEGATION_PROGRAM_ID);
 const MAGIC_PROGRAM_PK = SDK_MAGIC_PROGRAM_ID as unknown as PublicKey;
 const MAGIC_CONTEXT_PK = SDK_MAGIC_CONTEXT_ID as unknown as PublicKey;
-const VRF_PROGRAM_PK = new PublicKey('Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz');
+const VRF_PROGRAM_PK = new PublicKey(
+  "Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz",
+);
 const [PROGRAM_IDENTITY_PDA] = PublicKey.findProgramAddressSync(
-  [Buffer.from('identity')],
+  [Buffer.from("identity")],
   TOKKU_PROGRAM_ID,
 );
-const VRF_DEFAULT_QUEUE_PK = new PublicKey('Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh');
+const VRF_DEFAULT_QUEUE_PK = new PublicKey(
+  "Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh",
+);
 
-const MARKET_SEED = Buffer.from('market');
-const ROUND_SEED = Buffer.from('round');
-const VAULT_SEED = Buffer.from('vault');
-const BET_SEED = Buffer.from('bet');
+const MARKET_SEED = Buffer.from("market");
+const ROUND_SEED = Buffer.from("round");
+const VAULT_SEED = Buffer.from("vault");
+const BET_SEED = Buffer.from("bet");
 
 export class TokkuProgramService {
   private connection: Connection;
@@ -62,20 +69,26 @@ export class TokkuProgramService {
     try {
       const routerUrl = this.getRouterUrl(config.EPHEMERAL_RPC_URL);
       this.routerConnection = new ConnectionMagicRouter(routerUrl, {
-        commitment: 'confirmed',
-        httpHeaders: { 'Content-Type': 'application/json' },
+        commitment: "confirmed",
+        httpHeaders: { "Content-Type": "application/json" },
         fetch: (url: any, options?: any) => {
           return fetch(url, { ...options, signal: AbortSignal.timeout(30000) });
-        }
+        },
       } as any);
     } catch {}
     let idl: Idl;
-    const primaryIdlPath = path.resolve(__dirname, '../../../contracts/anchor/target/idl/tokku_engine.json');
+    const primaryIdlPath = path.resolve(
+      __dirname,
+      "../../../contracts/anchor/target/idl/tokku_engine.json",
+    );
     try {
-      idl = JSON.parse(fs.readFileSync(primaryIdlPath, 'utf8')) as Idl;
+      idl = JSON.parse(fs.readFileSync(primaryIdlPath, "utf8")) as Idl;
     } catch {
-      const fallbackIdlPath = path.resolve(__dirname, '../idl/tokku_engine.json');
-      idl = JSON.parse(fs.readFileSync(fallbackIdlPath, 'utf8')) as Idl;
+      const fallbackIdlPath = path.resolve(
+        __dirname,
+        "../idl/tokku_engine.json",
+      );
+      idl = JSON.parse(fs.readFileSync(fallbackIdlPath, "utf8")) as Idl;
     }
     this.coder = new BorshCoder(idl as any);
 
@@ -86,7 +99,7 @@ export class TokkuProgramService {
           configured: configuredQueue.toBase58(),
           expected: VRF_DEFAULT_QUEUE_PK.toBase58(),
         },
-        'VRF oracle queue differs from MagicBlock default; ensure this queue is valid for VRF requests',
+        "VRF oracle queue differs from MagicBlock default; ensure this queue is valid for VRF requests",
       );
     }
   }
@@ -95,8 +108,8 @@ export class TokkuProgramService {
     conn: Connection,
     tx: Transaction,
     signers: Keypair[],
-    commitment: 'processed' | 'confirmed' | 'finalized' = 'confirmed',
-    skipPreflight = false
+    commitment: "processed" | "confirmed" | "finalized" = "confirmed",
+    skipPreflight = false,
   ): Promise<string> {
     tx.sign(...signers);
     const rawTx = tx.serialize();
@@ -107,15 +120,17 @@ export class TokkuProgramService {
 
   private getRouterUrl(url: string): string {
     if (/router\.magicblock\.app/.test(url)) return url;
-    if (/devnet\.magicblock\.app/.test(url)) return 'https://devnet-router.magicblock.app';
-    if (/mainnet\.magicblock\.app/.test(url)) return 'https://mainnet-router.magicblock.app';
+    if (/devnet\.magicblock\.app/.test(url))
+      return "https://devnet-router.magicblock.app";
+    if (/mainnet\.magicblock\.app/.test(url))
+      return "https://mainnet-router.magicblock.app";
     return url;
   }
 
   async setHouseEdgeBps(
     marketId: PublicKey,
     houseEdgeBps: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const data = Buffer.concat([
       DISCRIMINATORS.SET_HOUSE_EDGE_BPS,
@@ -135,7 +150,12 @@ export class TokkuProgramService {
     const { blockhash } = await this.connection.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
     tx.feePayer = adminKeypair.publicKey;
-    return this.sendAndConfirm(this.connection, tx, [adminKeypair], 'confirmed');
+    return this.sendAndConfirm(
+      this.connection,
+      tx,
+      [adminKeypair],
+      "confirmed",
+    );
   }
 
   async fundVault(
@@ -149,8 +169,16 @@ export class TokkuProgramService {
       TOKKU_PROGRAM_ID,
     );
 
-    const adminTokenAccount = await getAssociatedTokenAddress(mint, adminKeypair.publicKey, false);
-    const vaultTokenAccount = await getAssociatedTokenAddress(mint, vaultPda, true);
+    const adminTokenAccount = await getAssociatedTokenAddress(
+      mint,
+      adminKeypair.publicKey,
+      false,
+    );
+    const vaultTokenAccount = await getAssociatedTokenAddress(
+      mint,
+      vaultPda,
+      true,
+    );
 
     const ixs: TransactionInstruction[] = [];
 
@@ -199,10 +227,7 @@ export class TokkuProgramService {
     const amountBuf = Buffer.alloc(8);
     amountBuf.writeBigUInt64LE(BigInt(amountLamports));
 
-    const data = Buffer.concat([
-      DISCRIMINATORS.FUND_VAULT,
-      amountBuf,
-    ]);
+    const data = Buffer.concat([DISCRIMINATORS.FUND_VAULT, amountBuf]);
 
     const ix = new TransactionInstruction({
       keys: [
@@ -223,7 +248,12 @@ export class TokkuProgramService {
     tx.recentBlockhash = blockhash;
     tx.feePayer = adminKeypair.publicKey;
 
-    return this.sendAndConfirm(this.connection, tx, [adminKeypair], 'confirmed');
+    return this.sendAndConfirm(
+      this.connection,
+      tx,
+      [adminKeypair],
+      "confirmed",
+    );
   }
 
   async placeBet(
@@ -233,35 +263,35 @@ export class TokkuProgramService {
     selection: { kind: number; a: number; b: number; c: number },
     stakeAmount: number,
     mint: PublicKey,
-    opts?: { useER?: boolean }
+    opts?: { useER?: boolean },
   ): Promise<{ transaction: Transaction; betPda: PublicKey }> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
-    
+
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const [vaultPda] = PublicKey.findProgramAddressSync(
       [VAULT_SEED, marketId.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const [betPda] = PublicKey.findProgramAddressSync(
       [BET_SEED, roundPda.toBuffer(), userPublicKey.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const userTokenAccount = await getAssociatedTokenAddress(
       mint,
-      userPublicKey
+      userPublicKey,
     );
 
     const vaultTokenAccount = await getAssociatedTokenAddress(
       mint,
       vaultPda,
-      true
+      true,
     );
 
     const placeBetData = (() => {
@@ -272,11 +302,7 @@ export class TokkuProgramService {
       selBuf.writeUInt16LE(selection.a & 0xffff, 1);
       selBuf.writeUInt16LE(selection.b & 0xffff, 3);
       selBuf.writeUInt16LE(selection.c & 0xffff, 5);
-      return Buffer.concat([
-        DISCRIMINATORS.PLACE_BET,
-        selBuf,
-        stakeBuf,
-      ]);
+      return Buffer.concat([DISCRIMINATORS.PLACE_BET, selBuf, stakeBuf]);
     })();
 
     const instruction = new TransactionInstruction({
@@ -290,7 +316,11 @@ export class TokkuProgramService {
         { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
         { pubkey: mint, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        {
+          pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+          isSigner: false,
+          isWritable: false,
+        },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       programId: TOKKU_PROGRAM_ID,
@@ -314,7 +344,7 @@ export class TokkuProgramService {
             mint,
             TOKEN_PROGRAM_ID,
             ASSOCIATED_TOKEN_PROGRAM_ID,
-          )
+          ),
         );
       }
 
@@ -327,14 +357,18 @@ export class TokkuProgramService {
             mint,
             TOKEN_PROGRAM_ID,
             ASSOCIATED_TOKEN_PROGRAM_ID,
-          )
+          ),
         );
       }
 
       const isNative = mint.equals(NATIVE_MINT);
       if (isNative) {
         ixs.push(
-          SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: userTokenAccount, lamports: stakeAmount })
+          SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: userTokenAccount,
+            lamports: stakeAmount,
+          }),
         );
         ixs.push(createSyncNativeInstruction(userTokenAccount));
       }
@@ -348,14 +382,18 @@ export class TokkuProgramService {
 
     transaction.recentBlockhash = blockhashInfo.blockhash;
     if (blockhashInfo.lastValidBlockHeight !== undefined) {
-      (transaction as any).lastValidBlockHeight = blockhashInfo.lastValidBlockHeight;
+      (transaction as any).lastValidBlockHeight =
+        blockhashInfo.lastValidBlockHeight;
     }
     transaction.feePayer = userPublicKey;
 
     return { transaction, betPda };
   }
 
-  private async getBaseBlockhash(): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
+  private async getBaseBlockhash(): Promise<{
+    blockhash: string;
+    lastValidBlockHeight: number;
+  }> {
     const maxAttempts = 5;
     let lastError: unknown;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -363,32 +401,43 @@ export class TokkuProgramService {
         return await this.connection.getLatestBlockhash();
       } catch (err: any) {
         lastError = err;
-        const msg = String(err?.message || '');
-        if (msg.includes('fetch failed') || msg.includes('UND_ERR_CONNECT_TIMEOUT')) {
-          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+        const msg = String(err?.message || "");
+        if (
+          msg.includes("fetch failed") ||
+          msg.includes("UND_ERR_CONNECT_TIMEOUT")
+        ) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 300 * (attempt + 1)),
+          );
           continue;
         }
         throw err;
       }
     }
-    logger.error({ lastError }, 'Failed to fetch base layer blockhash');
-    throw lastError || new Error('Failed to fetch base layer blockhash');
+    logger.error({ lastError }, "Failed to fetch base layer blockhash");
+    throw lastError || new Error("Failed to fetch base layer blockhash");
   }
 
   private async getErBlockhashForTransaction(
-    tx: Transaction
+    tx: Transaction,
   ): Promise<{ blockhash: string; lastValidBlockHeight?: number }> {
     if (this.routerConnection) {
       try {
-        const routerBlockhash = await this.routerConnection.getLatestBlockhashForTransaction(tx);
+        const routerBlockhash =
+          await this.routerConnection.getLatestBlockhashForTransaction(tx);
         if (routerBlockhash?.blockhash) {
-          (tx as any).__mb_blockhash_source = 'router';
+          (tx as any).__mb_blockhash_source = "router";
           return routerBlockhash;
         }
       } catch (routerErr: any) {
         logger.warn(
-          { error: routerErr instanceof Error ? routerErr.message : String(routerErr) },
-          'Magic Router blockhash fetch failed; falling back to ER RPC'
+          {
+            error:
+              routerErr instanceof Error
+                ? routerErr.message
+                : String(routerErr),
+          },
+          "Magic Router blockhash fetch failed; falling back to ER RPC",
         );
       }
     }
@@ -398,21 +447,27 @@ export class TokkuProgramService {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const res = await this.erConnection.getLatestBlockhash();
-        (tx as any).__mb_blockhash_source = 'er';
+        (tx as any).__mb_blockhash_source = "er";
         return res;
       } catch (err: any) {
         lastError = err;
-        const msg = String(err?.message || '');
-        if (msg.includes('fetch failed') || msg.includes('UND_ERR_CONNECT_TIMEOUT') || msg.includes('ECONNRESET')) {
-          await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+        const msg = String(err?.message || "");
+        if (
+          msg.includes("fetch failed") ||
+          msg.includes("UND_ERR_CONNECT_TIMEOUT") ||
+          msg.includes("ECONNRESET")
+        ) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 200 * (attempt + 1)),
+          );
           continue;
         }
         throw err;
       }
     }
 
-    logger.error({ lastError }, 'Failed to fetch ER blockhash');
-    throw lastError || new Error('Failed to fetch ER blockhash');
+    logger.error({ lastError }, "Failed to fetch ER blockhash");
+    throw lastError || new Error("Failed to fetch ER blockhash");
   }
 
   async settleBet(
@@ -420,36 +475,36 @@ export class TokkuProgramService {
     roundNumber: number,
     userPublicKey: PublicKey,
     mint: PublicKey,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
-    
+
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     // Bet PDA: [BET_SEED, round.key(), user.key()]
     const [betPda] = PublicKey.findProgramAddressSync(
       [BET_SEED, roundPda.toBuffer(), userPublicKey.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const [vaultPda] = PublicKey.findProgramAddressSync(
       [VAULT_SEED, marketId.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const userTokenAccount = await getAssociatedTokenAddress(
       mint,
-      userPublicKey
+      userPublicKey,
     );
 
     const vaultTokenAccount = await getAssociatedTokenAddress(
       mint,
       vaultPda,
-      true
+      true,
     );
 
     const settleBetData = Buffer.from(DISCRIMINATORS.SETTLE_BET);
@@ -466,7 +521,11 @@ export class TokkuProgramService {
         { pubkey: userPublicKey, isSigner: false, isWritable: false },
         { pubkey: mint, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        {
+          pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+          isSigner: false,
+          isWritable: false,
+        },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       programId: TOKKU_PROGRAM_ID,
@@ -478,8 +537,16 @@ export class TokkuProgramService {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = adminKeypair.publicKey;
 
-    const signature = await this.sendAndConfirm(this.connection, transaction, [adminKeypair], 'finalized');
-    logger.info({ signature, betPda: betPda.toString() }, 'Bet settled on-chain');
+    const signature = await this.sendAndConfirm(
+      this.connection,
+      transaction,
+      [adminKeypair],
+      "finalized",
+    );
+    logger.info(
+      { signature, betPda: betPda.toString() },
+      "Bet settled on-chain",
+    );
     return signature;
   }
 
@@ -488,35 +555,35 @@ export class TokkuProgramService {
     roundNumber: number,
     userPublicKey: PublicKey,
     mint: PublicKey,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const [betPda] = PublicKey.findProgramAddressSync(
       [BET_SEED, roundPda.toBuffer(), userPublicKey.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const [vaultPda] = PublicKey.findProgramAddressSync(
       [VAULT_SEED, marketId.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const userTokenAccount = await getAssociatedTokenAddress(
       mint,
-      userPublicKey
+      userPublicKey,
     );
 
     const vaultTokenAccount = await getAssociatedTokenAddress(
       mint,
       vaultPda,
-      true
+      true,
     );
 
     const refundBetData = Buffer.from(DISCRIMINATORS.REFUND_BET);
@@ -533,7 +600,11 @@ export class TokkuProgramService {
         { pubkey: userPublicKey, isSigner: false, isWritable: false },
         { pubkey: mint, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        {
+          pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+          isSigner: false,
+          isWritable: false,
+        },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       programId: TOKKU_PROGRAM_ID,
@@ -545,22 +616,30 @@ export class TokkuProgramService {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = adminKeypair.publicKey;
 
-    const signature = await this.sendAndConfirm(this.connection, transaction, [adminKeypair], 'finalized');
-    logger.info({ signature, betPda: betPda.toString() }, 'Bet refunded on-chain');
+    const signature = await this.sendAndConfirm(
+      this.connection,
+      transaction,
+      [adminKeypair],
+      "finalized",
+    );
+    logger.info(
+      { signature, betPda: betPda.toString() },
+      "Bet refunded on-chain",
+    );
     return signature;
   }
 
   async openRound(
     marketId: PublicKey,
     roundNumber: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<{ signature: string; roundPda: PublicKey }> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
-    
+
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const openRoundData = DISCRIMINATORS.OPEN_ROUND;
@@ -585,15 +664,20 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
 
-    logger.info({ signature, roundPda: roundPda.toString() }, 'Round opened on-chain');
+    logger.info(
+      { signature, roundPda: roundPda.toString() },
+      "Round opened on-chain",
+    );
 
     return { signature, roundPda };
   }
 
-  async getMarketState(marketId: PublicKey): Promise<{ lastRound: number; isActive: boolean }> {
+  async getMarketState(
+    marketId: PublicKey,
+  ): Promise<{ lastRound: number; isActive: boolean }> {
     const info = await this.connection.getAccountInfo(marketId);
     if (!info) {
       throw new Error(`Market ${marketId.toBase58()} not initialized on-chain`);
@@ -601,22 +685,26 @@ export class TokkuProgramService {
 
     let decoded: any;
     try {
-      decoded = this.coder.accounts.decode('Market', info.data);
+      decoded = this.coder.accounts.decode("Market", info.data);
     } catch (error) {
-      logger.error({ marketId: marketId.toBase58(), error }, 'Failed to decode market account');
+      logger.error(
+        { marketId: marketId.toBase58(), error },
+        "Failed to decode market account",
+      );
       throw error;
     }
     const lastRoundSource = decoded.lastRound ?? decoded.last_round ?? 0;
-    const lastRoundValue = typeof lastRoundSource === 'number'
-      ? lastRoundSource
-      : typeof lastRoundSource?.toNumber === 'function'
-        ? lastRoundSource.toNumber()
-        : Number(lastRoundSource ?? 0);
+    const lastRoundValue =
+      typeof lastRoundSource === "number"
+        ? lastRoundSource
+        : typeof lastRoundSource?.toNumber === "function"
+          ? lastRoundSource.toNumber()
+          : Number(lastRoundSource ?? 0);
 
     const activeFlag =
-      typeof decoded.isActive === 'boolean'
+      typeof decoded.isActive === "boolean"
         ? decoded.isActive
-        : typeof decoded.is_active === 'boolean'
+        : typeof decoded.is_active === "boolean"
           ? decoded.is_active
           : Boolean(decoded.isActive ?? decoded.is_active);
 
@@ -627,21 +715,21 @@ export class TokkuProgramService {
   }
 
   decodeBetAccount(data: Buffer): any {
-    return this.coder.accounts.decode('Bet', data);
+    return this.coder.accounts.decode("Bet", data);
   }
 
   async lockRound(
     marketId: PublicKey,
     roundNumber: number,
     adminKeypair: Keypair,
-    opts?: { useER?: boolean }
+    opts?: { useER?: boolean },
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const lockRoundData = DISCRIMINATORS.LOCK_ROUND;
@@ -661,21 +749,45 @@ export class TokkuProgramService {
       const { blockhash } = await this.connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = adminKeypair.publicKey;
-      const sig = await this.sendAndConfirm(this.connection, tx, [adminKeypair], 'finalized');
-      logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round locked on-chain');
+      const sig = await this.sendAndConfirm(
+        this.connection,
+        tx,
+        [adminKeypair],
+        "finalized",
+      );
+      logger.info(
+        { signature: sig, roundPda: roundPda.toString() },
+        "Round locked on-chain",
+      );
       return sig;
     }
     try {
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
-      logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round locked via router');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
+      logger.info(
+        { signature: sig, roundPda: roundPda.toString() },
+        "Round locked via router",
+      );
       return sig;
     } catch (e: any) {
       const tx = new Transaction().add(ix);
       const { blockhash } = await this.erConnection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = adminKeypair.publicKey;
-      const sig = await this.sendAndConfirm(this.erConnection, tx, [adminKeypair], 'confirmed', true);
-      logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round locked on ER');
+      const sig = await this.sendAndConfirm(
+        this.erConnection,
+        tx,
+        [adminKeypair],
+        "confirmed",
+        true,
+      );
+      logger.info(
+        { signature: sig, roundPda: roundPda.toString() },
+        "Round locked on ER",
+      );
       return sig;
     }
   }
@@ -683,14 +795,14 @@ export class TokkuProgramService {
   async settleRound(
     marketId: PublicKey,
     roundNumber: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = DISCRIMINATORS.SETTLE_ROUND;
@@ -714,7 +826,7 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
   }
 
@@ -724,14 +836,14 @@ export class TokkuProgramService {
     commitmentHash: Buffer,
     attestationSig: Buffer,
     adminKeypair: Keypair,
-    opts?: { useER?: boolean }
+    opts?: { useER?: boolean },
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -752,7 +864,7 @@ export class TokkuProgramService {
 
     const useER = Boolean(opts?.useER);
     const conn = useER ? this.erConnection : this.connection;
-    const commitment = useER ? 'confirmed' : 'finalized';
+    const commitment = useER ? "confirmed" : "finalized";
     const skipPreflight = useER;
 
     if (!useER) {
@@ -760,10 +872,20 @@ export class TokkuProgramService {
       const { blockhash } = await conn.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = adminKeypair.publicKey;
-      return this.sendAndConfirm(conn, tx, [adminKeypair], commitment, skipPreflight);
+      return this.sendAndConfirm(
+        conn,
+        tx,
+        [adminKeypair],
+        commitment,
+        skipPreflight,
+      );
     }
     try {
-      return await this.sendViaRouter(new Transaction().add(instruction), [adminKeypair], 'confirmed');
+      return await this.sendViaRouter(
+        new Transaction().add(instruction),
+        [adminKeypair],
+        "confirmed",
+      );
     } catch (routerErr) {
       let lastError: unknown;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -772,11 +894,21 @@ export class TokkuProgramService {
           const { blockhash } = await conn.getLatestBlockhash();
           tx.recentBlockhash = blockhash;
           tx.feePayer = adminKeypair.publicKey;
-          return await this.sendAndConfirm(conn, tx, [adminKeypair], commitment, skipPreflight);
+          return await this.sendAndConfirm(
+            conn,
+            tx,
+            [adminKeypair],
+            commitment,
+            skipPreflight,
+          );
         } catch (error: any) {
           lastError = error;
-          const message = String(error?.message || '');
-          if (!/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|channel closed|PubsubClientError|Remote account provider error/i.test(message)) {
+          const message = String(error?.message || "");
+          if (
+            !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|channel closed|PubsubClientError|Remote account provider error/i.test(
+              message,
+            )
+          ) {
             throw error;
           }
           if (attempt < 2) {
@@ -796,14 +928,14 @@ export class TokkuProgramService {
     nonce: Buffer,
     inputsHash: Buffer,
     attestationSig: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -829,8 +961,16 @@ export class TokkuProgramService {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = adminKeypair.publicKey;
 
-    const signature = await this.sendAndConfirm(this.connection, transaction, [adminKeypair], 'finalized');
-    logger.info({ signature, roundPda: roundPda.toString(), value }, 'Outcome revealed on-chain');
+    const signature = await this.sendAndConfirm(
+      this.connection,
+      transaction,
+      [adminKeypair],
+      "finalized",
+    );
+    logger.info(
+      { signature, roundPda: roundPda.toString(), value },
+      "Outcome revealed on-chain",
+    );
     return signature;
   }
 
@@ -843,14 +983,14 @@ export class TokkuProgramService {
     nonce: Buffer,
     inputsHash: Buffer,
     attestationSig: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -880,10 +1020,13 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
 
-    logger.info({ signature, roundPda: roundPda.toString(), shape, color, size }, 'Shape outcome revealed');
+    logger.info(
+      { signature, roundPda: roundPda.toString(), shape, color, size },
+      "Shape outcome revealed",
+    );
 
     return signature;
   }
@@ -896,14 +1039,14 @@ export class TokkuProgramService {
     nonce: Buffer,
     inputsHash: Buffer,
     attestationSig: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -934,10 +1077,13 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
 
-    logger.info({ signature, roundPda: roundPda.toString(), patternId, matchedValue }, 'Pattern outcome revealed');
+    logger.info(
+      { signature, roundPda: roundPda.toString(), patternId, matchedValue },
+      "Pattern outcome revealed",
+    );
 
     return signature;
   }
@@ -946,13 +1092,13 @@ export class TokkuProgramService {
     marketId: PublicKey,
     roundNumber: number,
     value: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.ER_REVEAL_OUTCOME_NUMERIC,
@@ -976,16 +1122,25 @@ export class TokkuProgramService {
         this.erConnection,
         tx,
         [adminKeypair],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -996,13 +1151,13 @@ export class TokkuProgramService {
     shape: number,
     color: number,
     size: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.ER_REVEAL_OUTCOME_SHAPE,
@@ -1026,16 +1181,25 @@ export class TokkuProgramService {
         this.erConnection,
         tx,
         [adminKeypair],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -1045,13 +1209,13 @@ export class TokkuProgramService {
     roundNumber: number,
     patternId: number,
     matchedValue: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.ER_REVEAL_OUTCOME_PATTERN,
@@ -1076,16 +1240,25 @@ export class TokkuProgramService {
         this.erConnection,
         tx,
         [adminKeypair],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -1096,13 +1269,13 @@ export class TokkuProgramService {
     teeScore: number,
     chainScore: number,
     sensorScore: number,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.ER_REVEAL_OUTCOME_ENTROPY,
@@ -1128,16 +1301,25 @@ export class TokkuProgramService {
         this.erConnection,
         tx,
         [adminKeypair],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -1147,13 +1329,13 @@ export class TokkuProgramService {
     roundNumber: number,
     finalByte: number,
     seedHash: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.ER_REVEAL_OUTCOME_COMMUNITY,
@@ -1178,16 +1360,25 @@ export class TokkuProgramService {
         this.erConnection,
         tx,
         [adminKeypair],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [adminKeypair], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [adminKeypair],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -1204,7 +1395,7 @@ export class TokkuProgramService {
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const data = Buffer.concat([
       DISCRIMINATORS.REQUEST_RANDOMNESS,
@@ -1218,7 +1409,11 @@ export class TokkuProgramService {
         { pubkey: oracleQueue, isSigner: false, isWritable: true },
         { pubkey: PROGRAM_IDENTITY_PDA, isSigner: false, isWritable: false },
         { pubkey: VRF_PROGRAM_PK, isSigner: false, isWritable: false },
-        { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
+        {
+          pubkey: SYSVAR_SLOT_HASHES_PUBKEY,
+          isSigner: false,
+          isWritable: false,
+        },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       programId: TOKKU_PROGRAM_ID,
@@ -1235,16 +1430,26 @@ export class TokkuProgramService {
         conn,
         tx,
         [payer],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!useER || !this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !useER ||
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|cannot be written/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      const sig = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
+      const sig = await this.sendViaRouter(
+        new Transaction().add(ix),
+        [payer],
+        "confirmed",
+      );
       return sig;
     }
   }
@@ -1252,13 +1457,13 @@ export class TokkuProgramService {
   async commitRoundStateER(
     marketId: PublicKey,
     roundNumber: number,
-    payer: Keypair
+    payer: Keypair,
   ): Promise<{ erTxHash: string; baseTxHash: string }> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const keys = [
       { pubkey: payer.publicKey, isSigner: true, isWritable: true },
@@ -1267,17 +1472,38 @@ export class TokkuProgramService {
       { pubkey: MAGIC_PROGRAM_PK, isSigner: false, isWritable: false },
       { pubkey: MAGIC_CONTEXT_PK, isSigner: false, isWritable: true },
     ];
-    const ix = new TransactionInstruction({ keys, programId: TOKKU_PROGRAM_ID, data: DISCRIMINATORS.COMMIT_ROUND });
+    const ix = new TransactionInstruction({
+      keys,
+      programId: TOKKU_PROGRAM_ID,
+      data: DISCRIMINATORS.COMMIT_ROUND,
+    });
     if (this.routerConnection) {
       try {
-        const erTxHash = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
-        logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit sent on ER (router)');
+        const erTxHash = await this.sendViaRouter(
+          new Transaction().add(ix),
+          [payer],
+          "confirmed",
+        );
+        logger.info(
+          { erTxHash, roundPda: roundPda.toString() },
+          "Commit sent on ER (router)",
+        );
         let baseTxHash = erTxHash;
         try {
           baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
-          logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Commit confirmed on base layer');
+          logger.info(
+            { baseTxHash, roundPda: roundPda.toString() },
+            "Commit confirmed on base layer",
+          );
         } catch (e: any) {
-          logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Commit base signature lookup failed; continuing');
+          logger.warn(
+            {
+              erTxHash,
+              roundPda: roundPda.toString(),
+              error: String(e?.message || e),
+            },
+            "Commit base signature lookup failed; continuing",
+          );
         }
         return { erTxHash, baseTxHash };
       } catch {}
@@ -1291,18 +1517,31 @@ export class TokkuProgramService {
       this.erConnection,
       tx,
       [payer],
-      'confirmed',
-      true
+      "confirmed",
+      true,
     );
 
-    logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit sent on ER');
+    logger.info(
+      { erTxHash, roundPda: roundPda.toString() },
+      "Commit sent on ER",
+    );
 
     let baseTxHash = erTxHash;
     try {
       baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
-      logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Commit confirmed on base layer');
+      logger.info(
+        { baseTxHash, roundPda: roundPda.toString() },
+        "Commit confirmed on base layer",
+      );
     } catch (e: any) {
-      logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Commit base signature lookup failed; continuing');
+      logger.warn(
+        {
+          erTxHash,
+          roundPda: roundPda.toString(),
+          error: String(e?.message || e),
+        },
+        "Commit base signature lookup failed; continuing",
+      );
     }
 
     return { erTxHash, baseTxHash };
@@ -1311,13 +1550,13 @@ export class TokkuProgramService {
   async commitAndUndelegateRoundER(
     marketId: PublicKey,
     roundNumber: number,
-    payer: Keypair
+    payer: Keypair,
   ): Promise<{ erTxHash: string; baseTxHash: string }> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     const keys = [
       { pubkey: payer.publicKey, isSigner: true, isWritable: true },
@@ -1326,20 +1565,41 @@ export class TokkuProgramService {
       { pubkey: MAGIC_PROGRAM_PK, isSigner: false, isWritable: false },
       { pubkey: MAGIC_CONTEXT_PK, isSigner: false, isWritable: true },
     ];
-    const ix = new TransactionInstruction({ keys, programId: TOKKU_PROGRAM_ID, data: DISCRIMINATORS.COMMIT_AND_UNDELEGATE_ROUND });
+    const ix = new TransactionInstruction({
+      keys,
+      programId: TOKKU_PROGRAM_ID,
+      data: DISCRIMINATORS.COMMIT_AND_UNDELEGATE_ROUND,
+    });
 
     if (this.routerConnection) {
       let lastErr: unknown;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const erTxHash = await this.sendViaRouter(new Transaction().add(ix), [payer], 'confirmed');
-          logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit and undelegate sent on ER (router)');
+          const erTxHash = await this.sendViaRouter(
+            new Transaction().add(ix),
+            [payer],
+            "confirmed",
+          );
+          logger.info(
+            { erTxHash, roundPda: roundPda.toString() },
+            "Commit and undelegate sent on ER (router)",
+          );
           let baseTxHash = erTxHash;
           try {
             baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
-            logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Undelegate confirmed on base layer');
+            logger.info(
+              { baseTxHash, roundPda: roundPda.toString() },
+              "Undelegate confirmed on base layer",
+            );
           } catch (e: any) {
-            logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Undelegate base signature lookup failed; continuing');
+            logger.warn(
+              {
+                erTxHash,
+                roundPda: roundPda.toString(),
+                error: String(e?.message || e),
+              },
+              "Undelegate base signature lookup failed; continuing",
+            );
           }
           return { erTxHash, baseTxHash };
         } catch (err) {
@@ -1357,18 +1617,31 @@ export class TokkuProgramService {
       this.erConnection,
       tx,
       [payer],
-      'confirmed',
-      true
+      "confirmed",
+      true,
     );
 
-    logger.info({ erTxHash, roundPda: roundPda.toString() }, 'Commit and undelegate sent on ER');
+    logger.info(
+      { erTxHash, roundPda: roundPda.toString() },
+      "Commit and undelegate sent on ER",
+    );
 
     let baseTxHash = erTxHash;
     try {
       baseTxHash = await this.getCommitmentSignatureFromEr(erTxHash);
-      logger.info({ baseTxHash, roundPda: roundPda.toString() }, 'Undelegate confirmed on base layer');
+      logger.info(
+        { baseTxHash, roundPda: roundPda.toString() },
+        "Undelegate confirmed on base layer",
+      );
     } catch (e: any) {
-      logger.warn({ erTxHash, roundPda: roundPda.toString(), error: String(e?.message || e) }, 'Undelegate base signature lookup failed; continuing');
+      logger.warn(
+        {
+          erTxHash,
+          roundPda: roundPda.toString(),
+          error: String(e?.message || e),
+        },
+        "Undelegate base signature lookup failed; continuing",
+      );
     }
 
     return { erTxHash, baseTxHash };
@@ -1384,14 +1657,14 @@ export class TokkuProgramService {
     nonce: Buffer,
     inputsHash: Buffer,
     attestationSig: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -1423,10 +1696,13 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
 
-    logger.info({ signature, roundPda: roundPda.toString(), winner }, 'Entropy outcome revealed');
+    logger.info(
+      { signature, roundPda: roundPda.toString(), winner },
+      "Entropy outcome revealed",
+    );
 
     return signature;
   }
@@ -1439,14 +1715,14 @@ export class TokkuProgramService {
     nonce: Buffer,
     inputsHash: Buffer,
     attestationSig: Buffer,
-    adminKeypair: Keypair
+    adminKeypair: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const data = Buffer.concat([
@@ -1477,10 +1753,13 @@ export class TokkuProgramService {
       this.connection,
       transaction,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
 
-    logger.info({ signature, roundPda: roundPda.toString(), finalByte }, 'Community outcome revealed');
+    logger.info(
+      { signature, roundPda: roundPda.toString(), finalByte },
+      "Community outcome revealed",
+    );
 
     return signature;
   }
@@ -1489,21 +1768,26 @@ export class TokkuProgramService {
     marketId: PublicKey,
     roundNumber: number,
     payer: Keypair,
-    validatorPubkey?: PublicKey
+    validatorPubkey?: PublicKey,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     await this.waitForAccountInitialization(roundPda);
 
-    const bufferPda = delegateBufferPdaFromDelegatedAccountAndOwnerProgram(roundPda, TOKKU_PROGRAM_ID);
-    const delegationRecordPda = delegationRecordPdaFromDelegatedAccount(roundPda);
-    const delegationMetadataPda = delegationMetadataPdaFromDelegatedAccount(roundPda);
+    const bufferPda = delegateBufferPdaFromDelegatedAccountAndOwnerProgram(
+      roundPda,
+      TOKKU_PROGRAM_ID,
+    );
+    const delegationRecordPda =
+      delegationRecordPdaFromDelegatedAccount(roundPda);
+    const delegationMetadataPda =
+      delegationMetadataPdaFromDelegatedAccount(roundPda);
 
     const data = DISCRIMINATORS.DELEGATE_ROUND;
 
@@ -1519,7 +1803,9 @@ export class TokkuProgramService {
         { pubkey: TOKKU_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: DELEGATION_PROGRAM_PK, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-        ...(validatorPubkey ? [{ pubkey: validatorPubkey, isSigner: false, isWritable: false }] : []),
+        ...(validatorPubkey
+          ? [{ pubkey: validatorPubkey, isSigner: false, isWritable: false }]
+          : []),
       ];
 
       const instruction = new TransactionInstruction({
@@ -1537,10 +1823,13 @@ export class TokkuProgramService {
         this.connection,
         transaction,
         [payer],
-        'finalized'
+        "finalized",
       );
 
-      logger.info({ signature, roundPda: roundPda.toString() }, 'Round delegated');
+      logger.info(
+        { signature, roundPda: roundPda.toString() },
+        "Round delegated",
+      );
 
       return signature;
     };
@@ -1555,16 +1844,19 @@ export class TokkuProgramService {
         }
         return await attemptDelegate();
       } catch (err: any) {
-        const message = String(err?.message || '');
+        const message = String(err?.message || "");
         if (
-          message.includes('AccountNotInitialized') ||
-          message.includes('not initialized on-chain') ||
-          message.includes('AccountOwnedByWrongProgram') ||
-          message.includes('0xbc4') ||
-          message.includes('0xbbf')
+          message.includes("AccountNotInitialized") ||
+          message.includes("not initialized on-chain") ||
+          message.includes("AccountOwnedByWrongProgram") ||
+          message.includes("0xbc4") ||
+          message.includes("0xbbf")
         ) {
           lastError = err;
-          logger.warn({ attempt, roundPda: roundPda.toString(), error: message }, 'Delegation attempt failed, retrying');
+          logger.warn(
+            { attempt, roundPda: roundPda.toString(), error: message },
+            "Delegation attempt failed, retrying",
+          );
           continue;
         }
         throw err;
@@ -1576,16 +1868,16 @@ export class TokkuProgramService {
   async ensureRoundUndelegated(
     marketId: PublicKey,
     roundNumber: number,
-    payer: Keypair
+    payer: Keypair,
   ): Promise<void> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
-    const account = await this.connection.getAccountInfo(roundPda, 'finalized');
+    const account = await this.connection.getAccountInfo(roundPda, "finalized");
     if (account && account.owner.equals(TOKKU_PROGRAM_ID)) {
       return;
     }
@@ -1593,14 +1885,16 @@ export class TokkuProgramService {
     await this.commitAndUndelegateRoundER(marketId, roundNumber, payer);
 
     for (let attempt = 0; attempt < 6; attempt++) {
-      const info = await this.connection.getAccountInfo(roundPda, 'finalized');
+      const info = await this.connection.getAccountInfo(roundPda, "finalized");
       if (info && info.owner.equals(TOKKU_PROGRAM_ID) && info.data.length > 0) {
         return;
       }
       await this.sleep(500 * (attempt + 1));
     }
 
-    throw new Error(`Round account ${roundPda.toBase58()} is still delegated after commit/undelegate`);
+    throw new Error(
+      `Round account ${roundPda.toBase58()} is still delegated after commit/undelegate`,
+    );
   }
 
   async waitForRoundOutcomeOnBase(
@@ -1612,13 +1906,16 @@ export class TokkuProgramService {
     const roundPda = await this.getRoundPda(marketId, roundNumber);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const info = await this.connection.getAccountInfo(roundPda, 'finalized');
+      const info = await this.connection.getAccountInfo(roundPda, "finalized");
       if (info && info.owner.equals(TOKKU_PROGRAM_ID) && info.data.length > 0) {
-        const decoded = this.coder.accounts.decode('Round', info.data) as any;
+        const decoded = this.coder.accounts.decode("Round", info.data) as any;
         const outcome = decoded?.outcome;
         const revealedAt = Number(decoded?.revealed_at ?? 0);
-        const variantKey = outcome && typeof outcome === 'object' ? Object.keys(outcome)[0] : '';
-        const isPending = Boolean(variantKey && variantKey.toLowerCase() === 'pending');
+        const variantKey =
+          outcome && typeof outcome === "object" ? Object.keys(outcome)[0] : "";
+        const isPending = Boolean(
+          variantKey && variantKey.toLowerCase() === "pending",
+        );
         const hasOutcome = Boolean(variantKey && !isPending);
         const hasRevealed = revealedAt > 0 || hasOutcome;
         if (hasRevealed && !isPending) return decoded;
@@ -1626,27 +1923,35 @@ export class TokkuProgramService {
       await this.sleep(intervalMs);
     }
 
-    throw new Error(`Round ${roundPda.toBase58()} outcome not available on base within ${timeoutMs}ms`);
+    throw new Error(
+      `Round ${roundPda.toBase58()} outcome not available on base within ${timeoutMs}ms`,
+    );
   }
 
   private async waitForAccountInitialization(
     pubkey: PublicKey,
     timeoutMs = 60000,
-    intervalMs = 1500
+    intervalMs = 1500,
   ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const info = await this.connection.getAccountInfo(pubkey, 'finalized');
+      const info = await this.connection.getAccountInfo(pubkey, "finalized");
       if (info && info.data.length > 0 && info.owner.equals(TOKKU_PROGRAM_ID)) {
-        logger.info({ pubkey: pubkey.toString(), owner: info.owner.toString() }, 'Account initialized');
+        logger.info(
+          { pubkey: pubkey.toString(), owner: info.owner.toString() },
+          "Account initialized",
+        );
         return;
       }
       if (info) {
-        logger.debug({
-          pubkey: pubkey.toString(),
-          owner: info.owner.toString(),
-          dataLength: info.data.length
-        }, 'Waiting for account initialization');
+        logger.debug(
+          {
+            pubkey: pubkey.toString(),
+            owner: info.owner.toString(),
+            dataLength: info.data.length,
+          },
+          "Waiting for account initialization",
+        );
       }
       await this.sleep(intervalMs);
     }
@@ -1660,7 +1965,7 @@ export class TokkuProgramService {
   private async confirmWithHttpOnly(
     connection: Connection,
     signature: string,
-    commitment: 'processed' | 'confirmed' | 'finalized' = 'confirmed',
+    commitment: "processed" | "confirmed" | "finalized" = "confirmed",
     timeoutMs = 45000,
     pollMs = 1000,
   ): Promise<void> {
@@ -1669,34 +1974,42 @@ export class TokkuProgramService {
       const statuses = await connection.getSignatureStatuses([signature]);
       const status = statuses.value[0];
       if (status && status.confirmationStatus) {
-        if (commitment === 'finalized') {
-          if (status.confirmationStatus === 'finalized') return;
-        } else if (commitment === 'confirmed') {
-          if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') return;
+        if (commitment === "finalized") {
+          if (status.confirmationStatus === "finalized") return;
+        } else if (commitment === "confirmed") {
+          if (
+            status.confirmationStatus === "confirmed" ||
+            status.confirmationStatus === "finalized"
+          )
+            return;
         } else {
           return;
         }
       }
       await this.sleep(pollMs);
     }
-    throw new Error(`Transaction ${signature} not confirmed within ${timeoutMs}ms`);
+    throw new Error(
+      `Transaction ${signature} not confirmed within ${timeoutMs}ms`,
+    );
   }
 
   private async sendViaRouter(
     tx: Transaction,
     signers: Keypair[],
-    commitment: 'processed' | 'confirmed' | 'finalized' = 'confirmed',
+    commitment: "processed" | "confirmed" | "finalized" = "confirmed",
   ): Promise<string> {
     if (!this.routerConnection) {
-      throw new Error('Magic Router unavailable');
+      throw new Error("Magic Router unavailable");
     }
-    const { blockhash, lastValidBlockHeight } = await (this.routerConnection as any).getLatestBlockhashForTransaction(tx);
+    const { blockhash, lastValidBlockHeight } = await (
+      this.routerConnection as any
+    ).getLatestBlockhashForTransaction(tx);
     const [firstSigner] = signers;
     tx.recentBlockhash = blockhash;
     (tx as any).lastValidBlockHeight = lastValidBlockHeight;
     if (!tx.feePayer) {
       if (!firstSigner) {
-        throw new Error('No signers available to set fee payer');
+        throw new Error("No signers available to set fee payer");
       }
       tx.feePayer = firstSigner.publicKey;
     }
@@ -1719,7 +2032,10 @@ export class TokkuProgramService {
     return null;
   }
 
-  private async getCommitmentSignatureFromEr(erTxHash: string, timeoutMs = 60000): Promise<string> {
+  private async getCommitmentSignatureFromEr(
+    erTxHash: string,
+    timeoutMs = 60000,
+  ): Promise<string> {
     const deadline = Date.now() + timeoutMs;
 
     let schedulingTx: any = null;
@@ -1732,32 +2048,40 @@ export class TokkuProgramService {
     }
 
     if (!schedulingTx?.meta) {
-      throw new Error('ER scheduling transaction not found or meta is null');
+      throw new Error("ER scheduling transaction not found or meta is null");
     }
 
     const schedulingLogs: string[] = schedulingTx.meta.logMessages ?? [];
-    const scheduledCommitSig = this.extractLogSignature(schedulingLogs, 'ScheduledCommitSent signature: ');
+    const scheduledCommitSig = this.extractLogSignature(
+      schedulingLogs,
+      "ScheduledCommitSent signature: ",
+    );
     if (!scheduledCommitSig) {
-      throw new Error('ScheduledCommitSent signature not found');
+      throw new Error("ScheduledCommitSent signature not found");
     }
 
     let commitTx: any = null;
     while (Date.now() < deadline) {
       commitTx = await this.erConnection
-        .getTransaction(scheduledCommitSig, { maxSupportedTransactionVersion: 0 })
+        .getTransaction(scheduledCommitSig, {
+          maxSupportedTransactionVersion: 0,
+        })
         .catch(() => null);
       if (commitTx?.meta) break;
       await this.sleep(750);
     }
 
     if (!commitTx?.meta) {
-      throw new Error('ER commit transaction not found or meta is null');
+      throw new Error("ER commit transaction not found or meta is null");
     }
 
     const commitLogs: string[] = commitTx.meta.logMessages ?? [];
-    const commitmentSig = this.extractLogSignature(commitLogs, 'ScheduledCommitSent signature[0]: ');
+    const commitmentSig = this.extractLogSignature(
+      commitLogs,
+      "ScheduledCommitSent signature[0]: ",
+    );
     if (!commitmentSig) {
-      throw new Error('Unable to find commitment signature');
+      throw new Error("Unable to find commitment signature");
     }
 
     return commitmentSig;
@@ -1766,14 +2090,14 @@ export class TokkuProgramService {
   async commitRoundState(
     marketId: PublicKey,
     roundNumber: number,
-    payer: Keypair
+    payer: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const keys = [
@@ -1794,8 +2118,15 @@ export class TokkuProgramService {
 
     if (this.routerConnection) {
       try {
-        const sig = await this.sendViaRouter(new Transaction().add(instruction), [payer], 'confirmed');
-        logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round state committed via router');
+        const sig = await this.sendViaRouter(
+          new Transaction().add(instruction),
+          [payer],
+          "confirmed",
+        );
+        logger.info(
+          { signature: sig, roundPda: roundPda.toString() },
+          "Round state committed via router",
+        );
         return sig;
       } catch {}
     }
@@ -1808,24 +2139,27 @@ export class TokkuProgramService {
       this.erConnection,
       transaction,
       [payer],
-      'confirmed',
-      true
+      "confirmed",
+      true,
     );
-    logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round state committed');
+    logger.info(
+      { signature: sig, roundPda: roundPda.toString() },
+      "Round state committed",
+    );
     return sig;
   }
 
   async commitAndUndelegateRound(
     marketId: PublicKey,
     roundNumber: number,
-    payer: Keypair
+    payer: Keypair,
   ): Promise<string> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
 
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
 
     const keys = [
@@ -1847,29 +2181,47 @@ export class TokkuProgramService {
     // Try ER first, then fallback to Magic Router
     try {
       const transaction = new Transaction().add(instruction);
-      const { blockhash} = await this.erConnection.getLatestBlockhash();
+      const { blockhash } = await this.erConnection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = payer.publicKey;
       const sig = await this.sendAndConfirm(
         this.erConnection,
         transaction,
         [payer],
-        'confirmed',
-        true
+        "confirmed",
+        true,
       );
-      logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round committed and undelegated');
+      logger.info(
+        { signature: sig, roundPda: roundPda.toString() },
+        "Round committed and undelegated",
+      );
       return sig;
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (!this.routerConnection || !(/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|channel closed|PubsubClientError/i.test(msg))) {
+      const msg = String(e?.message || "");
+      if (
+        !this.routerConnection ||
+        !/Blockhash not found|fetch failed|UND_ERR_CONNECT_TIMEOUT|403|channel closed|PubsubClientError/i.test(
+          msg,
+        )
+      ) {
         throw e;
       }
-      logger.warn({ roundNumber, error: msg }, 'ER tx failed; falling back to Magic Router');
+      logger.warn(
+        { roundNumber, error: msg },
+        "ER tx failed; falling back to Magic Router",
+      );
     }
 
-    if (!this.routerConnection) throw new Error('Magic Router unavailable');
-    const sig = await this.sendViaRouter(new Transaction().add(instruction), [payer], 'confirmed');
-    logger.info({ signature: sig, roundPda: roundPda.toString() }, 'Round committed and undelegated via router');
+    if (!this.routerConnection) throw new Error("Magic Router unavailable");
+    const sig = await this.sendViaRouter(
+      new Transaction().add(instruction),
+      [payer],
+      "confirmed",
+    );
+    logger.info(
+      { signature: sig, roundPda: roundPda.toString() },
+      "Round committed and undelegated via router",
+    );
     return sig;
   }
 
@@ -1886,13 +2238,16 @@ export class TokkuProgramService {
     }
   }
 
-  async getRoundPda(marketId: PublicKey, roundNumber: number): Promise<PublicKey> {
+  async getRoundPda(
+    marketId: PublicKey,
+    roundNumber: number,
+  ): Promise<PublicKey> {
     const roundNumberBuffer = Buffer.alloc(8);
     roundNumberBuffer.writeBigUInt64LE(BigInt(roundNumber));
-    
+
     const [roundPda] = PublicKey.findProgramAddressSync(
       [ROUND_SEED, marketId.toBuffer(), roundNumberBuffer],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     return roundPda;
   }
@@ -1902,17 +2257,20 @@ export class TokkuProgramService {
     indexBuf.writeUInt16LE(0, 0);
     const [marketPda] = PublicKey.findProgramAddressSync(
       [MARKET_SEED, adminPublicKey.toBuffer(), indexBuf],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     return marketPda;
   }
 
-  async getMarketPdaByIndex(adminPublicKey: PublicKey, index: number): Promise<PublicKey> {
+  async getMarketPdaByIndex(
+    adminPublicKey: PublicKey,
+    index: number,
+  ): Promise<PublicKey> {
     const indexBuf = Buffer.alloc(2);
     indexBuf.writeUInt16LE(index & 0xffff, 0);
     const [marketPda] = PublicKey.findProgramAddressSync(
       [MARKET_SEED, adminPublicKey.toBuffer(), indexBuf],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     return marketPda;
   }
@@ -1925,9 +2283,15 @@ export class TokkuProgramService {
     index: number,
     mint: PublicKey,
   ): Promise<{ signature: string; marketPda: PublicKey }> {
-    const marketPda = await this.getMarketPdaByIndex(adminKeypair.publicKey, index);
-    const idlPath = path.resolve(__dirname, '../../../contracts/anchor/target/idl/tokku_engine.json');
-    const idl = JSON.parse(fs.readFileSync(idlPath, 'utf8')) as Idl;
+    const marketPda = await this.getMarketPdaByIndex(
+      adminKeypair.publicKey,
+      index,
+    );
+    const idlPath = path.resolve(
+      __dirname,
+      "../../../contracts/anchor/target/idl/tokku_engine.json",
+    );
+    const idl = JSON.parse(fs.readFileSync(idlPath, "utf8")) as Idl;
     const coder = new BorshCoder(idl as any);
     const variant = [
       { PickRange: {} },
@@ -1941,7 +2305,7 @@ export class TokkuProgramService {
       { StreakMeter: {} },
       { CommunitySeed: {} },
     ][marketTypeDiscriminant] || { PickRange: {} };
-    const data = coder.instruction.encode('initialize_market', {
+    const data = coder.instruction.encode("initialize_market", {
       name,
       house_edge_bps: houseEdgeBps,
       market_type: variant,
@@ -1967,15 +2331,18 @@ export class TokkuProgramService {
       this.connection,
       tx,
       [adminKeypair],
-      'finalized'
+      "finalized",
     );
     return { signature: sig, marketPda };
   }
 
-  async getBetPda(roundPda: PublicKey, userPublicKey: PublicKey): Promise<PublicKey> {
+  async getBetPda(
+    roundPda: PublicKey,
+    userPublicKey: PublicKey,
+  ): Promise<PublicKey> {
     const [betPda] = PublicKey.findProgramAddressSync(
       [BET_SEED, roundPda.toBuffer(), userPublicKey.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     return betPda;
   }
@@ -1983,7 +2350,7 @@ export class TokkuProgramService {
   async getVaultPda(marketId: PublicKey): Promise<PublicKey> {
     const [vaultPda] = PublicKey.findProgramAddressSync(
       [VAULT_SEED, marketId.toBuffer()],
-      TOKKU_PROGRAM_ID
+      TOKKU_PROGRAM_ID,
     );
     return vaultPda;
   }

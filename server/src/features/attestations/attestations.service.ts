@@ -1,10 +1,10 @@
-import { Attestation, Round } from '@/config/database';
-import { redis } from '@/config/redis';
-import { NotFoundError, AttestationError } from '@/shared/errors';
-import { logger } from '@/utils/logger';
-import { config } from '@/config/env';
-import { PublicKey, Connection } from '@solana/web3.js';
-import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { Attestation, Round } from "@/config/database";
+import { redis } from "@/config/redis";
+import { NotFoundError, AttestationError } from "@/shared/errors";
+import { logger } from "@/utils/logger";
+import { config } from "@/config/env";
+import { PublicKey, Connection } from "@solana/web3.js";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 
 interface TeeAttestation {
   round_id: string;
@@ -30,17 +30,25 @@ export class AttestationsService {
     const savedAttestation = await Attestation.create({
       hash: teeAttestation.commitment_hash,
       roundId: teeAttestation.round_id,
-      type: 'TEE',
+      type: "TEE",
       payload: teeAttestation as any,
       signature: teeAttestation.signature,
       verified: false,
     });
 
-    this.verifyAttestationOnChain((savedAttestation as any)._id.toString(), teeAttestation).catch((error) => {
-      logger.error({ err: error, attestationId: savedAttestation.id }, 'Background verification failed');
+    this.verifyAttestationOnChain(
+      (savedAttestation as any)._id.toString(),
+      teeAttestation,
+    ).catch((error) => {
+      logger.error(
+        { err: error, attestationId: savedAttestation.id },
+        "Background verification failed",
+      );
     });
 
-    logger.info(`Attestation created: ${savedAttestation.id} for round: ${teeAttestation.round_id}`);
+    logger.info(
+      `Attestation created: ${savedAttestation.id} for round: ${teeAttestation.round_id}`,
+    );
 
     return {
       id: savedAttestation.id,
@@ -53,82 +61,121 @@ export class AttestationsService {
     };
   }
 
-  async verifyAttestationOnChain(attestationId: string, attestation: TeeAttestation) {
+  async verifyAttestationOnChain(
+    attestationId: string,
+    attestation: TeeAttestation,
+  ) {
     try {
       const isValidSignature = await this.verifyTeeSignature(attestation);
 
       if (!isValidSignature) {
-        throw new AttestationError('Invalid TEE signature');
+        throw new AttestationError("Invalid TEE signature");
       }
 
       const verificationTx = await this.submitVerificationToSolana(attestation);
 
-      await Attestation.updateOne({ _id: attestationId }, { $set: { verified: true, txHash: verificationTx } });
+      await Attestation.updateOne(
+        { _id: attestationId },
+        { $set: { verified: true, txHash: verificationTx } },
+      );
 
-      logger.info(`Attestation verified on-chain: ${attestationId} - TX: ${verificationTx}`);
-
+      logger.info(
+        `Attestation verified on-chain: ${attestationId} - TX: ${verificationTx}`,
+      );
     } catch (error: unknown) {
-      logger.error({ err: error }, 'Attestation verification failed');
+      logger.error({ err: error }, "Attestation verification failed");
 
-      await Attestation.updateOne({ _id: attestationId }, { $set: { verified: false } });
+      await Attestation.updateOne(
+        { _id: attestationId },
+        { $set: { verified: false } },
+      );
 
-      throw new AttestationError('Attestation verification failed');
+      throw new AttestationError("Attestation verification failed");
     }
   }
 
-  private async verifyTeeSignature(attestation: TeeAttestation): Promise<boolean> {
+  private async verifyTeeSignature(
+    attestation: TeeAttestation,
+  ): Promise<boolean> {
     try {
-      if (!attestation.signature || !attestation.commitment_hash || !attestation.public_key) {
-        logger.error('Missing required fields for signature verification');
+      if (
+        !attestation.signature ||
+        !attestation.commitment_hash ||
+        !attestation.public_key
+      ) {
+        logger.error("Missing required fields for signature verification");
         return false;
       }
 
-      const signatureBuffer = Buffer.from(attestation.signature, 'hex');
-      const commitmentHashBuffer = Buffer.from(attestation.commitment_hash, 'hex');
-      const publicKeyBuffer = Buffer.from(attestation.public_key, 'hex');
+      const signatureBuffer = Buffer.from(attestation.signature, "hex");
+      const commitmentHashBuffer = Buffer.from(
+        attestation.commitment_hash,
+        "hex",
+      );
+      const publicKeyBuffer = Buffer.from(attestation.public_key, "hex");
 
       if (signatureBuffer.length !== 64) {
-        logger.error({ length: signatureBuffer.length }, 'Invalid signature length, expected 64 bytes');
+        logger.error(
+          { length: signatureBuffer.length },
+          "Invalid signature length, expected 64 bytes",
+        );
         return false;
       }
 
       if (publicKeyBuffer.length !== 33 && publicKeyBuffer.length !== 65) {
-        logger.error({ length: publicKeyBuffer.length }, 'Invalid public key length, expected 33 or 65 bytes');
+        logger.error(
+          { length: publicKeyBuffer.length },
+          "Invalid public key length, expected 33 or 65 bytes",
+        );
         return false;
       }
 
       if (commitmentHashBuffer.length !== 32) {
-        logger.error({ length: commitmentHashBuffer.length }, 'Invalid commitment hash length, expected 32 bytes');
+        logger.error(
+          { length: commitmentHashBuffer.length },
+          "Invalid commitment hash length, expected 32 bytes",
+        );
         return false;
       }
 
-      const isValid = secp256k1.verify(signatureBuffer, commitmentHashBuffer, publicKeyBuffer);
+      const isValid = secp256k1.verify(
+        signatureBuffer,
+        commitmentHashBuffer,
+        publicKeyBuffer,
+      );
 
       if (!isValid) {
-        logger.error('TEE signature verification failed: signature does not match');
+        logger.error(
+          "TEE signature verification failed: signature does not match",
+        );
         return false;
       }
 
-      logger.info('TEE signature verified successfully');
+      logger.info("TEE signature verified successfully");
       return true;
     } catch (error: unknown) {
-      logger.error({ err: error }, 'TEE signature verification failed');
+      logger.error({ err: error }, "TEE signature verification failed");
       return false;
     }
   }
 
-  private async submitVerificationToSolana(attestation: TeeAttestation): Promise<string> {
+  private async submitVerificationToSolana(
+    attestation: TeeAttestation,
+  ): Promise<string> {
     const programId = new PublicKey(config.MAGIC_PROGRAM_ID);
 
     const { blockhash } = await this.connection.getLatestBlockhash();
 
-    logger.info({
-      program: programId.toString(),
-      blockhash,
-      round: attestation.round_id,
-    }, 'Submitting attestation verification to Solana');
+    logger.info(
+      {
+        program: programId.toString(),
+        blockhash,
+        round: attestation.round_id,
+      },
+      "Submitting attestation verification to Solana",
+    );
 
-    const { nanoid } = await import('nanoid');
+    const { nanoid } = await import("nanoid");
     const txHash = `${nanoid(88)}`;
 
     return txHash;
@@ -139,11 +186,13 @@ export class AttestationsService {
     const attestation = await Attestation.findOne({ hash }).lean();
 
     if (!attestation) {
-      throw new NotFoundError('Attestation');
+      throw new NotFoundError("Attestation");
     }
 
     const round = attestation.roundId
-      ? await Round.findById(attestation.roundId).select('roundNumber status marketId').lean()
+      ? await Round.findById(attestation.roundId)
+          .select("roundNumber status marketId")
+          .lean()
       : null;
 
     return {
@@ -162,7 +211,7 @@ export class AttestationsService {
   async getAttestationsByRound(roundId: string) {
     const [attestations, round] = await Promise.all([
       Attestation.find({ roundId }).sort({ createdAt: -1 }).lean(),
-      Round.findById(roundId).select('roundNumber marketId').lean(),
+      Round.findById(roundId).select("roundNumber marketId").lean(),
     ]);
 
     return attestations.map((attestation: any) => ({
@@ -180,7 +229,7 @@ export class AttestationsService {
     const attestation = await Attestation.findOne({ hash }).lean();
 
     if (!attestation) {
-      throw new NotFoundError('Attestation');
+      throw new NotFoundError("Attestation");
     }
 
     if (attestation.verified) {
@@ -188,11 +237,14 @@ export class AttestationsService {
         hash,
         verified: true,
         txHash: attestation.txHash,
-        message: 'Attestation already verified',
+        message: "Attestation already verified",
       };
     }
 
-    await this.verifyAttestationOnChain(String((attestation as any)._id), attestation.payload as unknown as TeeAttestation);
+    await this.verifyAttestationOnChain(
+      String((attestation as any)._id),
+      attestation.payload as unknown as TeeAttestation,
+    );
 
     const updated = await Attestation.findById((attestation as any)._id).lean();
 
@@ -200,7 +252,9 @@ export class AttestationsService {
       hash,
       verified: updated?.verified || false,
       txHash: updated?.txHash,
-      message: updated?.verified ? 'Attestation verified successfully' : 'Verification pending',
+      message: updated?.verified
+        ? "Attestation verified successfully"
+        : "Verification pending",
     };
   }
 
@@ -208,8 +262,8 @@ export class AttestationsService {
     // Filter by market via round IDs to avoid relation-typed filters
     let roundFilter: { roundId?: { in: string[] } } = {};
     if (marketId) {
-      const roundIds = await Round.find({ marketId }).select('_id').lean();
-      roundFilter = { roundId: { $in: roundIds.map(r => r._id) } } as any;
+      const roundIds = await Round.find({ marketId }).select("_id").lean();
+      roundFilter = { roundId: { $in: roundIds.map((r) => r._id) } } as any;
     }
 
     const [total, verified, pending, failed] = await Promise.all([
@@ -232,18 +286,18 @@ export class AttestationsService {
 
   async getCachedAttestation(hash: string) {
     const cached = await redis.get(redisKeys.attestation(hash));
-    
+
     if (cached) {
       return JSON.parse(cached);
     }
 
     const attestation = await this.getAttestationByHash(hash);
-    
+
     // Cache for TTL period
     await redis.setex(
       redisKeys.attestation(hash),
       config.ATTESTATION_CACHE_TTL,
-      JSON.stringify(attestation)
+      JSON.stringify(attestation),
     );
 
     return attestation;

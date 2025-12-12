@@ -1,11 +1,11 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import jwt from 'jsonwebtoken';
-import { config } from '@/config/env';
-import { AuthenticationError, NotFoundError } from '@/shared/errors';
-import { JwtPayload } from '@/shared/types';
-import { User } from '@/config/database';
+import { FastifyRequest, FastifyReply } from "fastify";
+import jwt from "jsonwebtoken";
+import { config } from "@/config/env";
+import { AuthenticationError, NotFoundError } from "@/shared/errors";
+import { JwtPayload } from "@/shared/types";
+import { User } from "@/config/database";
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyRequest {
     user?: {
       id: string;
@@ -17,14 +17,14 @@ declare module 'fastify' {
 export async function verifyJWT(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
 
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new AuthenticationError('Missing or invalid authorization header');
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new AuthenticationError("Missing or invalid authorization header");
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(" ")[1];
 
   if (!token) {
-    throw new AuthenticationError('Missing token');
+    throw new AuthenticationError("Missing token");
   }
 
   try {
@@ -32,15 +32,20 @@ export async function verifyJWT(request: FastifyRequest, reply: FastifyReply) {
     const payload = decoded as JwtPayload;
 
     // Verify user exists in database
-    const user = await User.findById(payload.userId).select({ _id: 1, walletAddress: 1 }).lean();
+    const user = await User.findById(payload.userId)
+      .select({ _id: 1, walletAddress: 1 })
+      .lean();
 
     if (!user) {
-      throw new NotFoundError('User');
+      throw new NotFoundError("User");
     }
 
-    request.user = { id: user.id || (user as any)._id?.toString(), walletAddress: user.walletAddress };
+    request.user = {
+      id: user.id || (user as any)._id?.toString(),
+      walletAddress: user.walletAddress,
+    };
   } catch (error) {
-    throw new AuthenticationError('Invalid or expired token');
+    throw new AuthenticationError("Invalid or expired token");
   }
 }
 
@@ -49,7 +54,7 @@ export function generateJWT(userId: string, walletAddress: string): string {
     userId,
     walletAddress,
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+    exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days
   };
 
   return jwt.sign(payload, config.JWT_SECRET);
@@ -58,12 +63,12 @@ export function generateJWT(userId: string, walletAddress: string): string {
 export async function verifySolanaMessage(
   message: string,
   signature: string,
-  publicKey: string
+  publicKey: string,
 ): Promise<boolean> {
   try {
-    const { PublicKey } = await import('@solana/web3.js');
-    const nacl = await import('tweetnacl');
-    const bs58 = await import('bs58');
+    const { PublicKey } = await import("@solana/web3.js");
+    const nacl = await import("tweetnacl");
+    const bs58 = await import("bs58");
 
     const pubKey = new PublicKey(publicKey);
     const messageBytes = new TextEncoder().encode(message);
@@ -72,7 +77,7 @@ export async function verifySolanaMessage(
     return nacl.default.sign.detached.verify(
       messageBytes,
       signatureBytes,
-      pubKey.toBytes()
+      pubKey.toBytes(),
     );
   } catch (error) {
     return false;

@@ -1,126 +1,126 @@
-import { FastifyInstance } from 'fastify';
-import { AttestationsController } from './attestations.controller';
+import { FastifyInstance } from "fastify";
+import { AttestationsController } from "./attestations.controller";
 
 const attestationsController = new AttestationsController();
 
 export async function attestationsRoutes(fastify: FastifyInstance) {
-  
   fastify.get(
-    '/integrity',
+    "/integrity",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'TEE integrity status',
-        description: 'Return current TEE integrity verification status',
+        tags: ["Attestations"],
+        summary: "TEE integrity status",
+        description: "Return current TEE integrity verification status",
       },
     },
-    attestationsController.verifyteeIntegrity
+    attestationsController.verifyteeIntegrity,
   );
 
   fastify.get(
-    '/hash/:hash',
+    "/hash/:hash",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'Get attestation by hash',
-        description: 'Retrieve attestation details by its hash',
+        tags: ["Attestations"],
+        summary: "Get attestation by hash",
+        description: "Retrieve attestation details by its hash",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            hash: { type: 'string' },
+            hash: { type: "string" },
           },
-          required: ['hash'],
+          required: ["hash"],
         },
       },
     },
-    attestationsController.getAttestationByHash
+    attestationsController.getAttestationByHash,
   );
 
   fastify.get(
-    '/round/:roundId',
+    "/round/:roundId",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'Get attestations by round',
-        description: 'Get all attestations for a specific round',
+        tags: ["Attestations"],
+        summary: "Get attestations by round",
+        description: "Get all attestations for a specific round",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    attestationsController.getAttestationsByRound
+    attestationsController.getAttestationsByRound,
   );
 
   fastify.get(
-    '/proof/:hash',
+    "/proof/:hash",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'Get attestation proof',
-        description: 'Get detailed proof information for verification',
+        tags: ["Attestations"],
+        summary: "Get attestation proof",
+        description: "Get detailed proof information for verification",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            hash: { type: 'string' },
+            hash: { type: "string" },
           },
-          required: ['hash'],
+          required: ["hash"],
         },
       },
     },
-    attestationsController.getAttestationProof
+    attestationsController.getAttestationProof,
   );
 
   fastify.get(
-    '/stats',
+    "/stats",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'Get attestation statistics',
-        description: 'Get attestation verification statistics',
+        tags: ["Attestations"],
+        summary: "Get attestation statistics",
+        description: "Get attestation verification statistics",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            marketId: { type: 'string' },
+            marketId: { type: "string" },
           },
         },
       },
     },
-    attestationsController.getAttestationStats
+    attestationsController.getAttestationStats,
   );
 
   fastify.get(
-    '/tee-integrity',
+    "/tee-integrity",
     {
       schema: {
-        tags: ['Attestations'],
-        summary: 'Verify TEE integrity',
-        description: 'Verify the integrity of the Trusted Execution Environment',
+        tags: ["Attestations"],
+        summary: "Verify TEE integrity",
+        description:
+          "Verify the integrity of the Trusted Execution Environment",
       },
     },
-    attestationsController.verifyteeIntegrity
+    attestationsController.verifyteeIntegrity,
   );
 
   // Admin route for manual verification
   fastify.post(
-    '/:hash/verify',
+    "/:hash/verify",
     {
       schema: {
-        tags: ['Attestations (Admin)'],
-        summary: 'Manual verification',
-        description: 'Manually trigger attestation verification',
+        tags: ["Attestations (Admin)"],
+        summary: "Manual verification",
+        description: "Manually trigger attestation verification",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            hash: { type: 'string' },
+            hash: { type: "string" },
           },
-          required: ['hash'],
+          required: ["hash"],
         },
       },
     },
-    attestationsController.verifyAttestation
+    attestationsController.verifyAttestation,
   );
 }

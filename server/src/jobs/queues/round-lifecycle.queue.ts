@@ -1,4 +1,4 @@
-import { createQueue } from '../queue-config';
+import { createQueue } from "../queue-config";
 
 export interface RevealOutcomeJobData {
   roundId: string;
@@ -12,4 +12,4 @@ export interface UndelegateRoundJobData {
   roundId: string;
 }
 
-export const roundLifecycleQueue = createQueue('round-lifecycle');
+export const roundLifecycleQueue = createQueue("round-lifecycle");

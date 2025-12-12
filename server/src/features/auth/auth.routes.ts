@@ -1,59 +1,59 @@
-import { FastifyInstance } from 'fastify';
-import { AuthController} from './auth.controller';
+import { FastifyInstance } from "fastify";
+import { AuthController } from "./auth.controller";
 
 const authController = new AuthController();
 
 export async function authRoutes(fastify: FastifyInstance) {
   fastify.post(
-    '/nonce',
+    "/nonce",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['publicKey'],
+          type: "object",
+          required: ["publicKey"],
           properties: {
-            publicKey: { type: 'string', minLength: 1 },
+            publicKey: { type: "string", minLength: 1 },
           },
         },
-        tags: ['Authentication'],
-        summary: 'Get wallet auth nonce',
-        description: 'Generate a one-time nonce for wallet sign-in',
+        tags: ["Authentication"],
+        summary: "Get wallet auth nonce",
+        description: "Generate a one-time nonce for wallet sign-in",
       },
     },
-    authController.nonce
+    authController.nonce,
   );
   fastify.post(
-    '/sign-in',
+    "/sign-in",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['message', 'signature', 'publicKey'],
+          type: "object",
+          required: ["message", "signature", "publicKey"],
           properties: {
-            message: { type: 'string', minLength: 1 },
-            signature: { type: 'string', minLength: 1 },
-            publicKey: { type: 'string', minLength: 1 },
+            message: { type: "string", minLength: 1 },
+            signature: { type: "string", minLength: 1 },
+            publicKey: { type: "string", minLength: 1 },
           },
         },
-        tags: ['Authentication'],
-        summary: 'Sign in with wallet',
-        description: 'Authenticate using Solana wallet signature',
+        tags: ["Authentication"],
+        summary: "Sign in with wallet",
+        description: "Authenticate using Solana wallet signature",
         response: {
           201: {
-            type: 'object',
+            type: "object",
             properties: {
-              success: { type: 'boolean' },
+              success: { type: "boolean" },
               data: {
-                type: 'object',
+                type: "object",
                 properties: {
                   user: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      id: { type: 'string' },
-                      walletAddress: { type: 'string' },
+                      id: { type: "string" },
+                      walletAddress: { type: "string" },
                     },
                   },
-                  token: { type: 'string' },
+                  token: { type: "string" },
                 },
               },
             },
@@ -61,37 +61,37 @@ export async function authRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    authController.signIn
+    authController.signIn,
   );
 
   // Require authentication for these routes
   fastify.register(async function (fastify) {
-    fastify.addHook('preHandler', async (request, reply) => {
+    fastify.addHook("preHandler", async (request, reply) => {
       await fastify.verifyJWT(request, reply);
     });
 
     fastify.post(
-      '/refresh',
+      "/refresh",
       {
         schema: {
-          tags: ['Authentication'],
-          summary: 'Refresh auth token',
-          description: 'Refresh JWT token for authenticated user',
+          tags: ["Authentication"],
+          summary: "Refresh auth token",
+          description: "Refresh JWT token for authenticated user",
         },
       },
-      authController.refresh
+      authController.refresh,
     );
 
     fastify.get(
-      '/me',
+      "/me",
       {
         schema: {
-          tags: ['Authentication'],
-          summary: 'Get user profile',
-          description: 'Retrieve authenticated user information',
+          tags: ["Authentication"],
+          summary: "Get user profile",
+          description: "Retrieve authenticated user information",
         },
       },
-      authController.me
+      authController.me,
     );
   });
 }

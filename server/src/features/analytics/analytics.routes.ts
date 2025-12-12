@@ -1,105 +1,109 @@
-import { FastifyInstance } from 'fastify';
-import { AnalyticsController } from './analytics.controller';
+import { FastifyInstance } from "fastify";
+import { AnalyticsController } from "./analytics.controller";
 
 const controller = new AnalyticsController();
 
 export async function analyticsRoutes(fastify: FastifyInstance) {
-
   fastify.get(
-    '/overview',
+    "/overview",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Platform overview metrics',
-        description: 'High-level KPIs: bets, users, finances, timings, attestations',
+        tags: ["Analytics"],
+        summary: "Platform overview metrics",
+        description:
+          "High-level KPIs: bets, users, finances, timings, attestations",
       },
     },
-    controller.getOverview
+    controller.getOverview,
   );
 
   fastify.get(
-    '/markets',
+    "/markets",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Per-market performance metrics',
-        description: 'Rounds, bets, volume, payout, PnL per market',
+        tags: ["Analytics"],
+        summary: "Per-market performance metrics",
+        description: "Rounds, bets, volume, payout, PnL per market",
       },
     },
-    controller.getMarketMetrics
+    controller.getMarketMetrics,
   );
 
   fastify.get(
-    '/users',
+    "/users",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'User activity metrics',
-        description: 'DAU/WAU/MAU based on betting activity',
+        tags: ["Analytics"],
+        summary: "User activity metrics",
+        description: "DAU/WAU/MAU based on betting activity",
       },
     },
-    controller.getUserMetrics
+    controller.getUserMetrics,
   );
 
   fastify.get(
-    '/timeseries',
+    "/timeseries",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Timeseries of bets/volume/payout',
-        description: 'Aggregated by day or week',
+        tags: ["Analytics"],
+        summary: "Timeseries of bets/volume/payout",
+        description: "Aggregated by day or week",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            days: { type: 'number', minimum: 1, maximum: 180, default: 14 },
-            granularity: { type: 'string', enum: ['daily', 'weekly'], default: 'daily' },
+            days: { type: "number", minimum: 1, maximum: 180, default: 14 },
+            granularity: {
+              type: "string",
+              enum: ["daily", "weekly"],
+              default: "daily",
+            },
           },
         },
       },
     },
-    controller.getTimeSeries
+    controller.getTimeSeries,
   );
 
   fastify.get(
-    '/market-health',
+    "/market-health",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Market health metrics',
-        description: 'Health indicators for all markets: active rounds, volume growth, settlement rate',
+        tags: ["Analytics"],
+        summary: "Market health metrics",
+        description:
+          "Health indicators for all markets: active rounds, volume growth, settlement rate",
       },
     },
-    controller.getMarketHealth
+    controller.getMarketHealth,
   );
 
   fastify.get(
-    '/trending-markets',
+    "/trending-markets",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Trending markets',
-        description: 'Markets sorted by 24h volume with growth metrics',
+        tags: ["Analytics"],
+        summary: "Trending markets",
+        description: "Markets sorted by 24h volume with growth metrics",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            limit: { type: 'number', minimum: 1, maximum: 50, default: 10 },
+            limit: { type: "number", minimum: 1, maximum: 50, default: 10 },
           },
         },
       },
     },
-    controller.getTrendingMarkets
+    controller.getTrendingMarkets,
   );
 
   fastify.get(
-    '/round-performance',
+    "/round-performance",
     {
       schema: {
-        tags: ['Analytics'],
-        summary: 'Round performance metrics',
-        description: 'Average round duration and lifecycle timings',
+        tags: ["Analytics"],
+        summary: "Round performance metrics",
+        description: "Average round duration and lifecycle timings",
       },
     },
-    controller.getRoundPerformanceMetrics
+    controller.getRoundPerformanceMetrics,
   );
 }
-

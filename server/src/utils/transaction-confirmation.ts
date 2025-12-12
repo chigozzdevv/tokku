@@ -1,12 +1,12 @@
-import { Connection } from '@solana/web3.js';
-import { logger } from './logger';
+import { Connection } from "@solana/web3.js";
+import { logger } from "./logger";
 
 export async function confirmTransactionHTTP(
   connection: Connection,
   signature: string,
-  commitment: 'processed' | 'confirmed' | 'finalized' = 'confirmed',
+  commitment: "processed" | "confirmed" | "finalized" = "confirmed",
   timeoutMs: number = 60000,
-  pollIntervalMs: number = 1000
+  pollIntervalMs: number = 1000,
 ): Promise<void> {
   const startTime = Date.now();
   const deadline = startTime + timeoutMs;
@@ -23,26 +23,29 @@ export async function confirmTransactionHTTP(
 
         const confirmationStatus = status.confirmationStatus;
 
-        if (commitment === 'finalized' && confirmationStatus === 'finalized') {
+        if (commitment === "finalized" && confirmationStatus === "finalized") {
           return;
         }
 
-        if (commitment === 'confirmed' && (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized')) {
+        if (
+          commitment === "confirmed" &&
+          (confirmationStatus === "confirmed" ||
+            confirmationStatus === "finalized")
+        ) {
           return;
         }
 
-        if (commitment === 'processed' && confirmationStatus) {
+        if (commitment === "processed" && confirmationStatus) {
           return;
         }
       }
 
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     } catch (error: any) {
-      const message = String(error?.message || '');
+      const message = String(error?.message || "");
 
-      if (message.includes('not found') || message.includes('could not find')) {
-        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      if (message.includes("not found") || message.includes("could not find")) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
         continue;
       }
 
@@ -62,14 +65,14 @@ export async function withRetry<T>(
     maxDelayMs?: number;
     backoffMultiplier?: number;
     onRetry?: (attempt: number, error: any) => void;
-  } = {}
+  } = {},
 ): Promise<T> {
   const {
     maxAttempts = 3,
     initialDelayMs = 500,
     maxDelayMs = 5000,
     backoffMultiplier = 2,
-    onRetry
+    onRetry,
   } = options;
 
   let lastError: any;
@@ -83,14 +86,14 @@ export async function withRetry<T>(
       if (attempt < maxAttempts - 1) {
         const delay = Math.min(
           initialDelayMs * Math.pow(backoffMultiplier, attempt),
-          maxDelayMs
+          maxDelayMs,
         );
 
         if (onRetry) {
           onRetry(attempt + 1, error);
         }
 
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

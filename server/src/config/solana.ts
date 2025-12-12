@@ -1,6 +1,6 @@
-import { Connection, PublicKey } from '@solana/web3.js';
-import { config } from './env';
-import { SolanaConfig } from '@/shared/types';
+import { Connection, PublicKey } from "@solana/web3.js";
+import { config } from "./env";
+import { SolanaConfig } from "@/shared/types";
 
 export const solanaConfig: SolanaConfig = {
   rpcUrl: config.SOLANA_RPC_URL,
@@ -23,12 +23,12 @@ export const teeConfig = {
 
 // Initialize connections
 export const solanaConnection = new Connection(config.SOLANA_RPC_URL, {
-  commitment: 'confirmed',
+  commitment: "confirmed",
   confirmTransactionInitialTimeout: 60000,
 });
 
 export const ephemeralConnection = new Connection(config.EPHEMERAL_RPC_URL, {
-  commitment: 'confirmed',
+  commitment: "confirmed",
   confirmTransactionInitialTimeout: 60000,
 });
 

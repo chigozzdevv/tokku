@@ -1,23 +1,31 @@
-import { useEffect, useState } from 'react'
-import { betsService, type BetRecord } from '@/services/bets.service'
+import { useEffect, useState } from "react";
+import { betsService, type BetRecord } from "@/services/bets.service";
 
 type BetStats = {
-  totalBets?: number
-  totalStake?: number
-  totalPayout?: number
-  winRate?: number
-}
+  totalBets?: number;
+  totalStake?: number;
+  totalPayout?: number;
+  winRate?: number;
+};
 
 export function BetsPage() {
-  const [bets, setBets] = useState<BetRecord[]>([])
-  const [stats, setStats] = useState<BetStats>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [bets, setBets] = useState<BetRecord[]>([]);
+  const [stats, setStats] = useState<BetStats>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const rpcUrl = (import.meta as any).env?.VITE_SOLANA_RPC_URL as string | undefined
-  const cluster = rpcUrl?.includes('devnet') ? 'devnet' : rpcUrl?.includes('testnet') ? 'testnet' : 'mainnet-beta'
-  const shortSig = (sig?: string) => (sig ? `${sig.slice(0, 4)}…${sig.slice(-4)}` : '—')
-  const txUrl = (sig?: string) => (sig ? `https://explorer.solana.com/tx/${sig}?cluster=${cluster}` : '')
+  const rpcUrl = (import.meta as any).env?.VITE_SOLANA_RPC_URL as
+    | string
+    | undefined;
+  const cluster = rpcUrl?.includes("devnet")
+    ? "devnet"
+    : rpcUrl?.includes("testnet")
+      ? "testnet"
+      : "mainnet-beta";
+  const shortSig = (sig?: string) =>
+    sig ? `${sig.slice(0, 4)}…${sig.slice(-4)}` : "—";
+  const txUrl = (sig?: string) =>
+    sig ? `https://explorer.solana.com/tx/${sig}?cluster=${cluster}` : "";
 
   useEffect(() => {
     async function load() {
@@ -25,33 +33,38 @@ export function BetsPage() {
         const [{ items }, metrics] = await Promise.all([
           betsService.list({ limit: 20 }),
           betsService.stats(),
-        ])
-        setBets(items)
-        const totalStake = (metrics as any).totalStake ?? (metrics as any).totalStaked ?? 0
-        const totalPayout = (metrics as any).totalPayout ?? (metrics as any).totalPaid ?? 0
-        const winRate = typeof (metrics as any).winRate === 'number' ? (metrics as any).winRate : 0
+        ]);
+        setBets(items);
+        const totalStake =
+          (metrics as any).totalStake ?? (metrics as any).totalStaked ?? 0;
+        const totalPayout =
+          (metrics as any).totalPayout ?? (metrics as any).totalPaid ?? 0;
+        const winRate =
+          typeof (metrics as any).winRate === "number"
+            ? (metrics as any).winRate
+            : 0;
         setStats({
           totalBets: (metrics as any).totalBets ?? 0,
           totalStake,
           totalPayout,
           winRate,
-        })
+        });
       } catch (err) {
-        console.error(err)
-        setError('Unable to load bets')
+        console.error(err);
+        setError("Unable to load bets");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    load()
-  }, [])
+    load();
+  }, []);
 
   if (loading) {
-    return <div className="dashboard-panel">Loading bets…</div>
+    return <div className="dashboard-panel">Loading bets…</div>;
   }
 
   if (error) {
-    return <div className="dashboard-panel">{error}</div>
+    return <div className="dashboard-panel">{error}</div>;
   }
 
   return (
@@ -60,26 +73,34 @@ export function BetsPage() {
         <div className="dashboard-panel-header">
           <div>
             <h1 className="dashboard-title">Betting Overview</h1>
-            <p className="dashboard-subtitle">Performance across devnet rounds</p>
+            <p className="dashboard-subtitle">
+              Performance across devnet rounds
+            </p>
           </div>
         </div>
         <div className="dashboard-stats-grid">
           <div className="card dashboard-stat">
             <span className="dashboard-stat-label">Total Bets</span>
-            <strong className="dashboard-stat-value">{stats.totalBets ?? 0}</strong>
+            <strong className="dashboard-stat-value">
+              {stats.totalBets ?? 0}
+            </strong>
           </div>
           <div className="card dashboard-stat">
             <span className="dashboard-stat-label">Total Stake</span>
-            <strong className="dashboard-stat-value">{(stats.totalStake ?? 0) / 1_000_000_000} SOL</strong>
+            <strong className="dashboard-stat-value">
+              {(stats.totalStake ?? 0) / 1_000_000_000} SOL
+            </strong>
           </div>
           <div className="card dashboard-stat">
             <span className="dashboard-stat-label">Total Payout</span>
-            <strong className="dashboard-stat-value">{(stats.totalPayout ?? 0) / 1_000_000_000} SOL</strong>
+            <strong className="dashboard-stat-value">
+              {(stats.totalPayout ?? 0) / 1_000_000_000} SOL
+            </strong>
           </div>
           <div className="card dashboard-stat">
             <span className="dashboard-stat-label">Win Rate</span>
             <strong className="dashboard-stat-value">
-              {stats.winRate ? `${(stats.winRate * 100).toFixed(1)}%` : '0%'}
+              {stats.winRate ? `${(stats.winRate * 100).toFixed(1)}%` : "0%"}
             </strong>
           </div>
         </div>
@@ -88,7 +109,9 @@ export function BetsPage() {
         <div className="dashboard-panel-header">
           <div>
             <h2 className="dashboard-title">Recent Bets</h2>
-            <p className="dashboard-subtitle">Latest confirmations across all markets</p>
+            <p className="dashboard-subtitle">
+              Latest confirmations across all markets
+            </p>
           </div>
         </div>
         {bets.length === 0 ? (
@@ -113,72 +136,115 @@ export function BetsPage() {
               </thead>
               <tbody>
                 {bets.map((bet) => {
-                  const roundDoc: any = (bet as any).round ?? (bet as any).roundId ?? null;
-                  const roundIdStr = typeof (bet as any).roundId === 'string'
-                    ? (bet as any).roundId
-                    : (roundDoc?._id ? String(roundDoc._id) : (roundDoc?.id ?? '—'));
+                  const roundDoc: any =
+                    (bet as any).round ?? (bet as any).roundId ?? null;
+                  const roundIdStr =
+                    typeof (bet as any).roundId === "string"
+                      ? (bet as any).roundId
+                      : roundDoc?._id
+                        ? String(roundDoc._id)
+                        : (roundDoc?.id ?? "—");
                   const roundNo = roundDoc?.roundNumber;
-                  const marketName = roundDoc?.market?.name ?? roundDoc?.marketId?.name ?? bet.marketId;
+                  const marketName =
+                    roundDoc?.market?.name ??
+                    roundDoc?.marketId?.name ??
+                    bet.marketId;
                   const status = bet.status;
                   const betTx = (bet as any).txSignature as string | undefined;
-                  const outcomeTx = roundDoc?.revealTxHash as string | undefined;
-                  const payoutTx = status === 'REFUNDED'
-                    ? ((bet as any).refundTxSignature as string | undefined)
-                    : ((bet as any).settleTxSignature as string | undefined);
+                  const outcomeTx = roundDoc?.revealTxHash as
+                    | string
+                    | undefined;
+                  const payoutTx =
+                    status === "REFUNDED"
+                      ? ((bet as any).refundTxSignature as string | undefined)
+                      : ((bet as any).settleTxSignature as string | undefined);
                   return (
-                  <tr key={bet.id}>
-                    <td>{marketName}</td>
-                    <td><code className="dashboard-code">{roundIdStr}</code></td>
-                    <td>{roundNo ? `#${roundNo}` : '—'}</td>
-                    <td>
-                      {status === 'PENDING' ? (
-                        <span style={{display:'inline-flex',alignItems:'center',gap:'0.4rem'}}>
-                          <span className="loading-spinner" style={{width:12,height:12,borderWidth:2}} /> Pending
-                        </span>
-                      ) : (
-                        status
-                      )}
-                    </td>
-                    <td>
-                      <code className="dashboard-code">{JSON.stringify(bet.selection)}</code>
-                    </td>
-                    <td>{(bet.stake ?? 0) / 1_000_000_000}</td>
-                    <td>{bet.payout ? bet.payout / 1_000_000_000 : 0}</td>
-                    <td>{new Date(bet.createdAt).toLocaleString()}</td>
-                    <td>
-                      {betTx ? (
-                        <a href={txUrl(betTx)} target="_blank" rel="noreferrer">
-                          <code className="dashboard-code">{shortSig(betTx)}</code>
-                        </a>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>
-                      {outcomeTx ? (
-                        <a href={txUrl(outcomeTx)} target="_blank" rel="noreferrer">
-                          <code className="dashboard-code">{shortSig(outcomeTx)}</code>
-                        </a>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>
-                      {payoutTx ? (
-                        <a href={txUrl(payoutTx)} target="_blank" rel="noreferrer">
-                          <code className="dashboard-code">{shortSig(payoutTx)}</code>
-                        </a>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                )})}
+                    <tr key={bet.id}>
+                      <td>{marketName}</td>
+                      <td>
+                        <code className="dashboard-code">{roundIdStr}</code>
+                      </td>
+                      <td>{roundNo ? `#${roundNo}` : "—"}</td>
+                      <td>
+                        {status === "PENDING" ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.4rem",
+                            }}
+                          >
+                            <span
+                              className="loading-spinner"
+                              style={{ width: 12, height: 12, borderWidth: 2 }}
+                            />{" "}
+                            Pending
+                          </span>
+                        ) : (
+                          status
+                        )}
+                      </td>
+                      <td>
+                        <code className="dashboard-code">
+                          {JSON.stringify(bet.selection)}
+                        </code>
+                      </td>
+                      <td>{(bet.stake ?? 0) / 1_000_000_000}</td>
+                      <td>{bet.payout ? bet.payout / 1_000_000_000 : 0}</td>
+                      <td>{new Date(bet.createdAt).toLocaleString()}</td>
+                      <td>
+                        {betTx ? (
+                          <a
+                            href={txUrl(betTx)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <code className="dashboard-code">
+                              {shortSig(betTx)}
+                            </code>
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {outcomeTx ? (
+                          <a
+                            href={txUrl(outcomeTx)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <code className="dashboard-code">
+                              {shortSig(outcomeTx)}
+                            </code>
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {payoutTx ? (
+                          <a
+                            href={txUrl(payoutTx)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <code className="dashboard-code">
+                              {shortSig(payoutTx)}
+                            </code>
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
     </div>
-  )
+  );
 }

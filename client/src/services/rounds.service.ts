@@ -1,79 +1,85 @@
-import { api } from '@/lib/api'
+import { api } from "@/lib/api";
 
-export type RoundStatus = 'QUEUED' | 'PREDICTING' | 'LOCKED' | 'REVEALED' | 'SETTLED' | 'FAILED'
+export type RoundStatus =
+  | "QUEUED"
+  | "PREDICTING"
+  | "LOCKED"
+  | "REVEALED"
+  | "SETTLED"
+  | "FAILED";
 
 export type Round = {
-  id: string
-  marketId: string
-  roundNumber: number
-  status: RoundStatus
-  openedAt?: string
-  lockedAt?: string
-  revealedAt?: string
-  settledAt?: string
-  queuedAt?: string
-  releasedAt?: string
-  scheduledReleaseAt?: string
-  releaseGroupId?: string
-  solanaAddress?: string
-  delegateTxHash?: string
-  undelegateTxHash?: string
-  outcome?: any
+  id: string;
+  marketId: string;
+  roundNumber: number;
+  status: RoundStatus;
+  openedAt?: string;
+  lockedAt?: string;
+  revealedAt?: string;
+  settledAt?: string;
+  queuedAt?: string;
+  releasedAt?: string;
+  scheduledReleaseAt?: string;
+  releaseGroupId?: string;
+  solanaAddress?: string;
+  delegateTxHash?: string;
+  undelegateTxHash?: string;
+  outcome?: any;
   market: {
-    id: string
-    name: string
-    type: string
-    config?: any
-  }
+    id: string;
+    name: string;
+    type: string;
+    config?: any;
+  };
   bets?: Array<{
-    id: string
-    stake: string
-    selection: any
-    status: string
-    createdAt: string
-  }>
+    id: string;
+    stake: string;
+    selection: any;
+    status: string;
+    createdAt: string;
+  }>;
   _count?: {
-    bets: number
-  }
-}
+    bets: number;
+  };
+};
 
 export type ApiResponse<T> = {
-  success: boolean
-  message?: string
-  data: T
-}
+  success: boolean;
+  message?: string;
+  data: T;
+};
 
 export const roundsService = {
   async getActiveRounds(marketId?: string): Promise<Round[]> {
-    const query = marketId ? `?marketId=${marketId}` : ''
-    const response = await api.get<ApiResponse<Round[]>>(`/rounds${query}`)
-    return response.data
+    const query = marketId ? `?marketId=${marketId}` : "";
+    const response = await api.get<ApiResponse<Round[]>>(`/rounds${query}`);
+    return response.data;
   },
 
   async getRound(roundId: string): Promise<Round> {
-    const response = await api.get<ApiResponse<Round>>(`/rounds/${roundId}`)
-    return response.data
+    const response = await api.get<ApiResponse<Round>>(`/rounds/${roundId}`);
+    return response.data;
   },
 
   async openRound(marketId: string): Promise<Round> {
-    const response = await api.post<ApiResponse<Round>>('/rounds/open', {
+    const response = await api.post<ApiResponse<Round>>("/rounds/open", {
       marketId,
-    })
-    return response.data
+    });
+    return response.data;
   },
 
   async lockRound(roundId: string): Promise<{ txHash: string }> {
     const response = await api.post<ApiResponse<{ txHash: string }>>(
-      '/rounds/lock',
-      { roundId }
-    )
-    return response.data
+      "/rounds/lock",
+      { roundId },
+    );
+    return response.data;
   },
 
   async undelegateRound(roundId: string): Promise<{ txHash: string }> {
     const response = await api.post<ApiResponse<{ txHash: string }>>(
-      `/rounds/${roundId}/undelegate`
-    )
-    return response.data
+      `/rounds/${roundId}/undelegate`,
+    );
+    return response.data;
   },
-}
+};

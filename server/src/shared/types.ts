@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export enum RoundStatus {
-  QUEUED = 'QUEUED',
-  PREDICTING = 'PREDICTING',
-  LOCKED = 'LOCKED',
-  REVEALED = 'REVEALED',
-  SETTLED = 'SETTLED',
-  FAILED = 'FAILED',
+  QUEUED = "QUEUED",
+  PREDICTING = "PREDICTING",
+  LOCKED = "LOCKED",
+  REVEALED = "REVEALED",
+  SETTLED = "SETTLED",
+  FAILED = "FAILED",
 }
 export type RoundStatusType = `${RoundStatus}`;
 
@@ -42,43 +42,43 @@ export interface JwtPayload {
 
 // Market types
 export enum MarketType {
-  PICK_RANGE = 'PICK_RANGE',
-  EVEN_ODD = 'EVEN_ODD',
-  LAST_DIGIT = 'LAST_DIGIT',
-  MODULO_THREE = 'MODULO_THREE',
-  PATTERN_OF_DAY = 'PATTERN_OF_DAY',
-  SHAPE_COLOR = 'SHAPE_COLOR',
-  JACKPOT = 'JACKPOT',
-  ENTROPY_BATTLE = 'ENTROPY_BATTLE',
-  STREAK_METER = 'STREAK_METER',
-  COMMUNITY_SEED = 'COMMUNITY_SEED',
+  PICK_RANGE = "PICK_RANGE",
+  EVEN_ODD = "EVEN_ODD",
+  LAST_DIGIT = "LAST_DIGIT",
+  MODULO_THREE = "MODULO_THREE",
+  PATTERN_OF_DAY = "PATTERN_OF_DAY",
+  SHAPE_COLOR = "SHAPE_COLOR",
+  JACKPOT = "JACKPOT",
+  ENTROPY_BATTLE = "ENTROPY_BATTLE",
+  STREAK_METER = "STREAK_METER",
+  COMMUNITY_SEED = "COMMUNITY_SEED",
 }
 
 export enum BetStatus {
-  PENDING = 'PENDING',
-  WON = 'WON',
-  LOST = 'LOST',
-  REFUNDED = 'REFUNDED',
+  PENDING = "PENDING",
+  WON = "WON",
+  LOST = "LOST",
+  REFUNDED = "REFUNDED",
 }
 
 export enum StreakStatus {
-  ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
+  ACTIVE = "ACTIVE",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
 }
 
 // Bet selection types
-export type BetSelection = 
-  | { type: 'range'; min: number; max: number }
-  | { type: 'single'; value: number }
-  | { type: 'parity'; value: 'even' | 'odd' }
-  | { type: 'digit'; value: number }
-  | { type: 'modulo'; value: number }
-  | { type: 'pattern'; patternId: string }
-  | { type: 'shape'; shape: string; color?: string; size?: string }
-  | { type: 'entropy'; source: string; comparison: '>' | '<' | '=' }
-  | { type: 'streak'; target: number }
-  | { type: 'community'; byte: number };
+export type BetSelection =
+  | { type: "range"; min: number; max: number }
+  | { type: "single"; value: number }
+  | { type: "parity"; value: "even" | "odd" }
+  | { type: "digit"; value: number }
+  | { type: "modulo"; value: number }
+  | { type: "pattern"; patternId: string }
+  | { type: "shape"; shape: string; color?: string; size?: string }
+  | { type: "entropy"; source: string; comparison: ">" | "<" | "=" }
+  | { type: "streak"; target: number }
+  | { type: "community"; byte: number };
 
 // Result types
 export interface RoundResult {

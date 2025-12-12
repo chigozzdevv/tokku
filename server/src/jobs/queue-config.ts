@@ -1,11 +1,11 @@
-import { Queue, Worker, QueueOptions, WorkerOptions } from 'bullmq';
-import { config } from '@/config/env';
-import { logger } from '@/utils/logger';
+import { Queue, Worker, QueueOptions, WorkerOptions } from "bullmq";
+import { config } from "@/config/env";
+import { logger } from "@/utils/logger";
 
 const redisUrl = new URL(config.REDIS_URL);
 export const queueConnection = {
   host: redisUrl.hostname,
-  port: parseInt(redisUrl.port || '6379'),
+  port: parseInt(redisUrl.port || "6379"),
   username: redisUrl.username || undefined,
   password: redisUrl.password || undefined,
 };
@@ -16,7 +16,7 @@ export const defaultQueueOptions: QueueOptions = {
   defaultJobOptions: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
+      type: "exponential",
       delay: 2000,
     },
     removeOnComplete: {
@@ -35,14 +35,17 @@ export const defaultWorkerOptions: WorkerOptions = {
   skipVersionCheck: true,
 };
 
-export function createQueue<T = any>(name: string, options?: Partial<QueueOptions>): Queue<T> {
+export function createQueue<T = any>(
+  name: string,
+  options?: Partial<QueueOptions>,
+): Queue<T> {
   const queue = new Queue<T>(name, {
     ...defaultQueueOptions,
     ...options,
   });
 
-  queue.on('error', (error) => {
-    logger.error({ queue: name, error }, 'Queue error');
+  queue.on("error", (error) => {
+    logger.error({ queue: name, error }, "Queue error");
   });
 
   return queue;
@@ -51,27 +54,23 @@ export function createQueue<T = any>(name: string, options?: Partial<QueueOption
 export function createWorker<T = any>(
   name: string,
   processor: (job: any) => Promise<void>,
-  options?: Partial<WorkerOptions>
+  options?: Partial<WorkerOptions>,
 ): Worker<T> {
-  const worker = new Worker<T>(
-    name,
-    processor,
-    {
-      ...defaultWorkerOptions,
-      ...options,
-    }
-  );
-
-  worker.on('completed', (job) => {
-    logger.info({ queue: name, jobId: job.id }, 'Job completed');
+  const worker = new Worker<T>(name, processor, {
+    ...defaultWorkerOptions,
+    ...options,
   });
 
-  worker.on('failed', (job, err) => {
-    logger.error({ queue: name, jobId: job?.id, error: err }, 'Job failed');
+  worker.on("completed", (job) => {
+    logger.info({ queue: name, jobId: job.id }, "Job completed");
   });
 
-  worker.on('error', (error) => {
-    logger.error({ queue: name, error }, 'Worker error');
+  worker.on("failed", (job, err) => {
+    logger.error({ queue: name, jobId: job?.id, error: err }, "Job failed");
+  });
+
+  worker.on("error", (error) => {
+    logger.error({ queue: name, error }, "Worker error");
   });
 
   return worker;

@@ -1,6 +1,6 @@
-import Redis from 'ioredis';
-import { config } from './env';
-import { logger } from '@/utils/logger';
+import Redis from "ioredis";
+import { config } from "./env";
+import { logger } from "@/utils/logger";
 
 let redis: Redis;
 
@@ -14,16 +14,16 @@ export function connectRedis() {
     },
   });
 
-  redis.on('connect', () => {
-    logger.info('[Redis] Connected successfully');
+  redis.on("connect", () => {
+    logger.info("[Redis] Connected successfully");
   });
 
-  redis.on('error', (error: Error) => {
-    logger.error({ err: error }, 'Redis connection error');
+  redis.on("error", (error: Error) => {
+    logger.error({ err: error }, "Redis connection error");
   });
 
   return redis.connect().catch((error: Error) => {
-    logger.fatal({ err: error }, 'Redis connection failed');
+    logger.fatal({ err: error }, "Redis connection failed");
     throw error;
   });
 }
@@ -35,8 +35,8 @@ export const redisKeys = {
   roundBets: (roundId: string) => `round:${roundId}:bets`,
   betCount: (roundId: string) => `round:${roundId}:bet-count`,
   userSession: (userId: string) => `session:${userId}`,
-  leaderboard: 'leaderboard',
-  activeStreaks: 'streaks:active',
+  leaderboard: "leaderboard",
+  activeStreaks: "streaks:active",
   attestation: (hash: string) => `attestation:${hash}`,
   communityRound: (roundId: string) => `community:${roundId}`,
   entropyCache: (source: string) => `entropy:${source}`,

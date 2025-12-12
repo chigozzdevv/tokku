@@ -1,23 +1,28 @@
-import fastifyCors from '@fastify/cors';
-import fastifyHelmet from '@fastify/helmet';
-import fastifyRateLimit from '@fastify/rate-limit';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUi from '@fastify/swagger-ui';
-import { config } from './env';
-import { verifyJWT } from '@/utils/auth';
+import fastifyCors from "@fastify/cors";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import { config } from "./env";
+import { verifyJWT } from "@/utils/auth";
 
 export async function registerPlugins(app: any) {
-  const allowedOrigins = config.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+  const allowedOrigins = config.CORS_ORIGIN.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
 
   await app.register(fastifyCors, {
-    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      cb: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) {
         return cb(null, true);
       }
       if (allowedOrigins.includes(origin)) {
         return cb(null, true);
       }
-      return cb(new Error('Origin not allowed by CORS'), false);
+      return cb(new Error("Origin not allowed by CORS"), false);
     },
     credentials: true,
   });
@@ -41,8 +46,8 @@ export async function registerPlugins(app: any) {
     skipOnError: true,
     keyGenerator: (request: any) => request.ip,
     errorResponseBuilder: (request: any, context: any) => ({
-      code: 'RATE_LIMIT_EXCEEDED',
-      error: 'Rate limit exceeded',
+      code: "RATE_LIMIT_EXCEEDED",
+      error: "Rate limit exceeded",
       expiresIn: Math.round(context.ttl / 1000),
       current: context.current,
       max: 1,
@@ -53,19 +58,17 @@ export async function registerPlugins(app: any) {
   await app.register(fastifySwagger, {
     openapi: {
       info: {
-        title: 'Tokku API',
-        description: 'Provably Random Gaming Platform',
-        version: '1.0.0',
+        title: "Tokku API",
+        description: "Provably Random Gaming Platform",
+        version: "1.0.0",
       },
-      servers: [
-        { url: 'http://localhost:3001', description: 'Development' },
-      ],
+      servers: [{ url: "http://localhost:3001", description: "Development" }],
       components: {
         securitySchemes: {
           bearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT',
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
           },
         },
       },
@@ -74,25 +77,25 @@ export async function registerPlugins(app: any) {
   });
 
   await app.register(fastifySwaggerUi, {
-    routePrefix: '/docs',
+    routePrefix: "/docs",
     uiConfig: {
-      docExpansion: 'list',
+      docExpansion: "list",
       displayRequestDuration: true,
     },
   });
 
   // Auth decorator for route hooks
   if (!app.verifyJWT) {
-    app.decorate('verifyJWT', verifyJWT);
+    app.decorate("verifyJWT", verifyJWT);
   }
 
   // Request logging
-  app.addHook('onRequest', (request: any, reply: any, done: any) => {
+  app.addHook("onRequest", (request: any, reply: any, done: any) => {
     (request as any).startTime = Date.now();
     done();
   });
 
-  app.addHook('onResponse', (request: any, reply: any, done: any) => {
+  app.addHook("onResponse", (request: any, reply: any, done: any) => {
     const duration = Date.now() - (request.startTime || Date.now());
     request.log.info({
       method: request.method,

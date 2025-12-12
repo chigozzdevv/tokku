@@ -1,86 +1,114 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { StreaksService } from './streaks.service';
+import { FastifyRequest, FastifyReply } from "fastify";
+import { StreaksService } from "./streaks.service";
 
-import { success, paginated } from '@/utils/response';
-import { asyncHandler } from '@/utils/errors';
-import { requireAuth } from '@/features/auth';
+import { success, paginated } from "@/utils/response";
+import { asyncHandler } from "@/utils/errors";
+import { requireAuth } from "@/features/auth";
 
 const streaksService = new StreaksService();
 
 export class StreaksController {
-  createStreak = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      throw new Error('User not authenticated');
-    }
+  createStreak = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        throw new Error("User not authenticated");
+      }
 
-    const { marketId, target } = request.body as any;
-    
-    const streak = await streaksService.createStreak(request.user.id, marketId, target);
-    
-    return success(reply, streak, 'Streak started successfully');
-  });
+      const { marketId, target } = request.body as any;
 
-  getUserStreaks = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      throw new Error('User not authenticated');
-    }
+      const streak = await streaksService.createStreak(
+        request.user.id,
+        marketId,
+        target,
+      );
 
-    const { status } = request.query as any;
-    
-    const streaks = await streaksService.getUserStreaks(request.user.id, status);
-    
-    return success(reply, streaks);
-  });
+      return success(reply, streak, "Streak started successfully");
+    },
+  );
 
-  getActiveStreak = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      throw new Error('User not authenticated');
-    }
+  getUserStreaks = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        throw new Error("User not authenticated");
+      }
 
-    const { marketId } = request.query as any;
-    
-    const streak = await streaksService.getActiveStreak(request.user.id, marketId);
-    
-    return success(reply, streak);
-  });
+      const { status } = request.query as any;
 
-  getStreakLeaderboard = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    const { limit = 50 } = request.query as any;
-    
-    const leaderboard = await streaksService.getStreakLeaderboard(limit);
-    
-    return success(reply, leaderboard);
-  });
+      const streaks = await streaksService.getUserStreaks(
+        request.user.id,
+        status,
+      );
 
-  getStreakOdds = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    const { target } = request.query as any;
-    
-    if (!target || target < 2 || target > 5) {
-      throw new Error('Invalid streak target. Must be between 2 and 5');
-    }
-    
-    const odds = await streaksService.getStreakOdds(target);
-    
-    return success(reply, { target, odds });
-  });
+      return success(reply, streaks);
+    },
+  );
 
-  getStreakStats = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.user?.id;
-    
-    const stats = await streaksService.getStreakStats(userId);
-    
-    return success(reply, stats);
-  });
+  getActiveStreak = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        throw new Error("User not authenticated");
+      }
 
-  validateStreakBet = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      throw new Error('User not authenticated');
-    }
+      const { marketId } = request.query as any;
 
-    const { target, stake } = request.body as any;
-    
-    const valid = await streaksService.validateStreakBet(request.user.id, target, stake);
-    
-    return success(reply, { valid, message: 'Streak bet is valid' });
-  });
+      const streak = await streaksService.getActiveStreak(
+        request.user.id,
+        marketId,
+      );
+
+      return success(reply, streak);
+    },
+  );
+
+  getStreakLeaderboard = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { limit = 50 } = request.query as any;
+
+      const leaderboard = await streaksService.getStreakLeaderboard(limit);
+
+      return success(reply, leaderboard);
+    },
+  );
+
+  getStreakOdds = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { target } = request.query as any;
+
+      if (!target || target < 2 || target > 5) {
+        throw new Error("Invalid streak target. Must be between 2 and 5");
+      }
+
+      const odds = await streaksService.getStreakOdds(target);
+
+      return success(reply, { target, odds });
+    },
+  );
+
+  getStreakStats = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.user?.id;
+
+      const stats = await streaksService.getStreakStats(userId);
+
+      return success(reply, stats);
+    },
+  );
+
+  validateStreakBet = asyncHandler(
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        throw new Error("User not authenticated");
+      }
+
+      const { target, stake } = request.body as any;
+
+      const valid = await streaksService.validateStreakBet(
+        request.user.id,
+        target,
+        stake,
+      );
+
+      return success(reply, { valid, message: "Streak bet is valid" });
+    },
+  );
 }

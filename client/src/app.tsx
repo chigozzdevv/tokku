@@ -1,6 +1,12 @@
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { LandingPage } from './pages/landing/landing-page'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { LandingPage } from "./pages/landing/landing-page";
 import {
   DashboardLayout,
   RoundsPage,
@@ -13,23 +19,23 @@ import {
   RoundDetailPage,
   CommunityPage,
   LeaderboardPage,
-} from './pages/dashboard'
-import { useAuth } from './providers/auth-provider'
+} from "./pages/dashboard";
+import { useAuth } from "./providers/auth-provider";
 
 export default function App() {
   return (
     <BrowserRouter>
       <AnimatedRoutes />
     </BrowserRouter>
-  )
+  );
 }
 
 function AnimatedRoutes() {
-  const location = useLocation()
-  const { initialized, user, loading } = useAuth()
+  const location = useLocation();
+  const { initialized, user, loading } = useAuth();
 
   if (!initialized && loading) {
-    return <LoadingScreen />
+    return <LoadingScreen />;
   }
 
   return (
@@ -63,10 +69,13 @@ function AnimatedRoutes() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-        <Route path="*" element={<Navigate to={user ? '/app' : '/'} replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={user ? "/app" : "/"} replace />}
+        />
       </Routes>
     </AnimatePresence>
-  )
+  );
 }
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -79,7 +88,7 @@ function Page({ children }: { children: React.ReactNode }) {
     >
       {children}
     </motion.div>
-  )
+  );
 }
 
 function LoadingScreen() {
@@ -88,7 +97,7 @@ function LoadingScreen() {
       <div className="loading-spinner" />
       <span>Loading Tokku…</span>
     </div>
-  )
+  );
 }
 
 function ProtectedRoute({
@@ -96,15 +105,15 @@ function ProtectedRoute({
   initialized,
   children,
 }: {
-  user: { id: string; walletAddress: string } | null
-  initialized: boolean
-  children: React.ReactNode
+  user: { id: string; walletAddress: string } | null;
+  initialized: boolean;
+  children: React.ReactNode;
 }) {
   if (!initialized) {
-    return <LoadingScreen />
+    return <LoadingScreen />;
   }
   if (!user) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace />;
   }
-  return <>{children}</>
+  return <>{children}</>;
 }

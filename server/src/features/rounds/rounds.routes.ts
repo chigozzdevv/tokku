@@ -1,142 +1,144 @@
-import { FastifyInstance } from 'fastify';
-import { RoundsController } from './rounds.controller';
-import { requireAuth } from '@/features/auth';
+import { FastifyInstance } from "fastify";
+import { RoundsController } from "./rounds.controller";
+import { requireAuth } from "@/features/auth";
 
 const roundsController = new RoundsController();
 
 export async function roundsRoutes(fastify: FastifyInstance) {
   fastify.post(
-    '/open',
+    "/open",
     {
       preHandler: [requireAuth],
       schema: {
-        tags: ['Rounds'],
-        summary: 'Open a new round',
-        description: 'Create and delegate a new betting round to ER',
+        tags: ["Rounds"],
+        summary: "Open a new round",
+        description: "Create and delegate a new betting round to ER",
         body: {
-          type: 'object',
+          type: "object",
           properties: {
-            marketId: { type: 'string', minLength: 1 },
+            marketId: { type: "string", minLength: 1 },
           },
-          required: ['marketId'],
+          required: ["marketId"],
         },
       },
     },
-    roundsController.openRound.bind(roundsController)
+    roundsController.openRound.bind(roundsController),
   );
 
   fastify.post(
-    '/lock',
+    "/lock",
     {
       preHandler: [requireAuth],
       schema: {
-        tags: ['Rounds'],
-        summary: 'Lock a round',
-        description: 'Lock a round and trigger outcome generation',
+        tags: ["Rounds"],
+        summary: "Lock a round",
+        description: "Lock a round and trigger outcome generation",
         body: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string', minLength: 1 },
+            roundId: { type: "string", minLength: 1 },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    roundsController.lockRound.bind(roundsController)
+    roundsController.lockRound.bind(roundsController),
   );
 
   fastify.post(
-    '/:roundId/undelegate',
+    "/:roundId/undelegate",
     {
       preHandler: [requireAuth],
       schema: {
-        tags: ['Rounds'],
-        summary: 'Undelegate round',
-        description: 'Undelegate round from ER back to base layer',
+        tags: ["Rounds"],
+        summary: "Undelegate round",
+        description: "Undelegate round from ER back to base layer",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    roundsController.undelegateRound.bind(roundsController)
+    roundsController.undelegateRound.bind(roundsController),
   );
 
   fastify.get(
-    '/:roundId',
+    "/:roundId",
     {
       schema: {
-        tags: ['Rounds'],
-        summary: 'Get round details',
-        description: 'Retrieve specific round information',
+        tags: ["Rounds"],
+        summary: "Get round details",
+        description: "Retrieve specific round information",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    roundsController.getRound.bind(roundsController)
+    roundsController.getRound.bind(roundsController),
   );
 
   fastify.get(
-    '/',
+    "/",
     {
       schema: {
-        tags: ['Rounds'],
-        summary: 'Get active rounds',
-        description: 'Retrieve all active rounds',
+        tags: ["Rounds"],
+        summary: "Get active rounds",
+        description: "Retrieve all active rounds",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            marketId: { type: 'string' },
+            marketId: { type: "string" },
           },
         },
       },
     },
-    roundsController.getActiveRounds.bind(roundsController)
+    roundsController.getActiveRounds.bind(roundsController),
   );
 
   fastify.get(
-    '/:roundId/analytics',
+    "/:roundId/analytics",
     {
       schema: {
-        tags: ['Rounds'],
-        summary: 'Get round analytics',
-        description: 'Get detailed analytics for a specific round including volume, bets, timeline, and trends',
+        tags: ["Rounds"],
+        summary: "Get round analytics",
+        description:
+          "Get detailed analytics for a specific round including volume, bets, timeline, and trends",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    roundsController.getRoundAnalytics.bind(roundsController)
+    roundsController.getRoundAnalytics.bind(roundsController),
   );
 
   fastify.get(
-    '/:roundId/probability-history',
+    "/:roundId/probability-history",
     {
       schema: {
-        tags: ['Rounds'],
-        summary: 'Get probability history',
-        description: 'Get historical probability distribution for all selections in a round over time',
+        tags: ["Rounds"],
+        summary: "Get probability history",
+        description:
+          "Get historical probability distribution for all selections in a round over time",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    roundsController.getProbabilityHistory.bind(roundsController)
+    roundsController.getProbabilityHistory.bind(roundsController),
   );
 }

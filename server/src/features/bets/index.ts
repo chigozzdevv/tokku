@@ -1,3 +1,3 @@
-export * from './bets.controller';
-export * from './bets.service';
-export * from './bets.routes';
+export * from "./bets.controller";
+export * from "./bets.service";
+export * from "./bets.routes";

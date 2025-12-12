@@ -1,19 +1,22 @@
-import { FastifyError } from 'fastify';
-import { AppError } from '@/shared/errors';
-import { logger } from './logger';
+import { FastifyError } from "fastify";
+import { AppError } from "@/shared/errors";
+import { logger } from "./logger";
 
 export function errorHandler(error: FastifyError, request: any, reply: any) {
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   // Log errors
-  logger.error({
-    error: error.message,
-    stack: error.stack,
-    method: request.method,
-    url: request.url,
-    ip: request.ip,
-    userId: request.user?.id,
-  }, 'Request failed');
+  logger.error(
+    {
+      error: error.message,
+      stack: error.stack,
+      method: request.method,
+      url: request.url,
+      ip: request.ip,
+      userId: request.user?.id,
+    },
+    "Request failed",
+  );
 
   // Handle known application errors
   if (error instanceof AppError) {
@@ -29,8 +32,8 @@ export function errorHandler(error: FastifyError, request: any, reply: any) {
   if (error.validation) {
     return reply.status(400).send({
       success: false,
-      error: 'VALIDATION_ERROR',
-      message: 'Invalid request parameters',
+      error: "VALIDATION_ERROR",
+      message: "Invalid request parameters",
       details: error.validation,
     });
   }
@@ -39,7 +42,7 @@ export function errorHandler(error: FastifyError, request: any, reply: any) {
   if (error.statusCode) {
     return reply.status(error.statusCode).send({
       success: false,
-      error: 'FASTIFY_ERROR',
+      error: "FASTIFY_ERROR",
       message: error.message,
       ...(isDevelopment && { stack: error.stack }),
     });
@@ -48,8 +51,8 @@ export function errorHandler(error: FastifyError, request: any, reply: any) {
   // Default error response
   return reply.status(500).send({
     success: false,
-    error: 'INTERNAL_ERROR',
-    message: isDevelopment ? error.message : 'Internal server error',
+    error: "INTERNAL_ERROR",
+    message: isDevelopment ? error.message : "Internal server error",
     ...(isDevelopment && { stack: error.stack }),
   });
 }

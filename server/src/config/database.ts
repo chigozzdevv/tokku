@@ -1,9 +1,9 @@
-export { connectDatabase, disconnectDatabase, mongoose } from './mongodb'
-export { User } from '@/features/auth/auth.model'
-export { Market } from '@/features/markets/markets.model'
-export { Round } from '@/features/rounds/rounds.model'
-export { Bet } from '@/features/bets/bets.model'
-export { Attestation } from '@/features/attestations/attestations.model'
-export { Streak } from '@/features/streaks/streaks.model'
-export { CommunitySeed } from '@/features/community/community.model'
-export { LeaderboardEntry } from '@/features/leaderboard/leaderboard.model'
+export { connectDatabase, disconnectDatabase, mongoose } from "./mongodb";
+export { User } from "@/features/auth/auth.model";
+export { Market } from "@/features/markets/markets.model";
+export { Round } from "@/features/rounds/rounds.model";
+export { Bet } from "@/features/bets/bets.model";
+export { Attestation } from "@/features/attestations/attestations.model";
+export { Streak } from "@/features/streaks/streaks.model";
+export { CommunitySeed } from "@/features/community/community.model";
+export { LeaderboardEntry } from "@/features/leaderboard/leaderboard.model";

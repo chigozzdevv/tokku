@@ -1,10 +1,14 @@
-import { Connection, PublicKey } from '@solana/web3.js';
-import nacl from 'tweetnacl';
-import { config } from '@/config/env';
-import { logger } from '@/utils/logger';
-import { createHash } from 'crypto';
-import { getAdminKeypair } from '@/config/admin-keypair';
-import { generateOutcomeLocal, LocalTeeAttestation, TeeMarketType } from '@/solana/local-tee';
+import { Connection, PublicKey } from "@solana/web3.js";
+import nacl from "tweetnacl";
+import { config } from "@/config/env";
+import { logger } from "@/utils/logger";
+import { createHash } from "crypto";
+import { getAdminKeypair } from "@/config/admin-keypair";
+import {
+  generateOutcomeLocal,
+  LocalTeeAttestation,
+  TeeMarketType,
+} from "@/solana/local-tee";
 
 interface TeeAttestation {
   round_id: string;
@@ -35,8 +39,9 @@ export class TeeService {
   private readonly adminPublicKey = new PublicKey(this.adminKeypair.publicKey);
 
   constructor() {
-    this.teeRpcUrl = (config.TEE_RPC_URL || '').replace(/\/+$/, '');
-    this.backupTeeRpcUrl = (config.TEE_BACKUP_RPC_URL || '').replace(/\/+$/, '') || undefined;
+    this.teeRpcUrl = (config.TEE_RPC_URL || "").replace(/\/+$/, "");
+    this.backupTeeRpcUrl =
+      (config.TEE_BACKUP_RPC_URL || "").replace(/\/+$/, "") || undefined;
     this.connection = new Connection(config.SOLANA_RPC_URL);
   }
 
@@ -45,19 +50,24 @@ export class TeeService {
       return;
     }
     const now = Date.now();
-    if (this.integrityOkAt && now - this.integrityOkAt < config.ATTESTATION_CACHE_TTL * 1000) {
+    if (
+      this.integrityOkAt &&
+      now - this.integrityOkAt < config.ATTESTATION_CACHE_TTL * 1000
+    ) {
       return;
     }
-    const { verifyTeeRpcIntegrity } = await import('@magicblock-labs/ephemeral-rollups-sdk/privacy');
+    const { verifyTeeRpcIntegrity } = await import(
+      "@magicblock-labs/ephemeral-rollups-sdk/privacy"
+    );
     const ok = await verifyTeeRpcIntegrity(this.teeRpcUrl);
     if (!ok) {
-      throw new Error('TEE integrity verification failed');
+      throw new Error("TEE integrity verification failed");
     }
     this.integrityOkAt = now;
   }
 
   private decodeExpiry(token: string, fallback: number) {
-    const parts = token.split('.');
+    const parts = token.split(".");
     if (parts.length !== 3) {
       return fallback;
     }
@@ -66,7 +76,7 @@ export class TeeService {
       if (!payloadBase64) {
         return fallback;
       }
-      const raw = Buffer.from(payloadBase64, 'base64url').toString('utf8');
+      const raw = Buffer.from(payloadBase64, "base64url").toString("utf8");
       const payload = JSON.parse(raw) as { exp?: number };
       if (payload.exp) {
         return Math.max(Date.now() + 1000, payload.exp * 1000 - 5000);
@@ -78,14 +88,21 @@ export class TeeService {
   private async ensureAuthToken(): Promise<string> {
     const ttlMs = config.TEE_AUTH_CACHE_TTL * 1000;
     const now = Date.now();
-    if (this.authToken && this.authTokenExpiresAt && now < this.authTokenExpiresAt) {
+    if (
+      this.authToken &&
+      this.authTokenExpiresAt &&
+      now < this.authTokenExpiresAt
+    ) {
       return this.authToken;
     }
-    const { getAuthToken } = await import('@magicblock-labs/ephemeral-rollups-sdk/privacy');
+    const { getAuthToken } = await import(
+      "@magicblock-labs/ephemeral-rollups-sdk/privacy"
+    );
     const token = await getAuthToken(
       this.teeRpcUrl,
       this.adminPublicKey,
-      async (message: Uint8Array) => nacl.sign.detached(message, this.adminKeypair.secretKey)
+      async (message: Uint8Array) =>
+        nacl.sign.detached(message, this.adminKeypair.secretKey),
     );
     this.authToken = token;
     this.authTokenExpiresAt = this.decodeExpiry(token, now + ttlMs);
@@ -93,17 +110,24 @@ export class TeeService {
   }
 
   private async ensureBackupAuthToken(): Promise<string> {
-    if (!this.backupTeeRpcUrl) throw new Error('No backup TEE configured');
+    if (!this.backupTeeRpcUrl) throw new Error("No backup TEE configured");
     const ttlMs = config.TEE_AUTH_CACHE_TTL * 1000;
     const now = Date.now();
-    if (this.backupAuthToken && this.backupAuthTokenExpiresAt && now < this.backupAuthTokenExpiresAt) {
+    if (
+      this.backupAuthToken &&
+      this.backupAuthTokenExpiresAt &&
+      now < this.backupAuthTokenExpiresAt
+    ) {
       return this.backupAuthToken;
     }
-    const { getAuthToken } = await import('@magicblock-labs/ephemeral-rollups-sdk/privacy');
+    const { getAuthToken } = await import(
+      "@magicblock-labs/ephemeral-rollups-sdk/privacy"
+    );
     const token = await getAuthToken(
       this.backupTeeRpcUrl,
       this.adminPublicKey,
-      async (message: Uint8Array) => nacl.sign.detached(message, this.adminKeypair.secretKey)
+      async (message: Uint8Array) =>
+        nacl.sign.detached(message, this.adminKeypair.secretKey),
     );
     this.backupAuthToken = token;
     this.backupAuthTokenExpiresAt = this.decodeExpiry(token, now + ttlMs);
@@ -114,17 +138,20 @@ export class TeeService {
     const base = new URL(path, `${this.teeRpcUrl}/`);
     if (authorize) {
       const token = await this.ensureAuthToken();
-      base.searchParams.set('token', token);
+      base.searchParams.set("token", token);
     }
     return base.toString();
   }
 
-  private async buildBackupUrl(path: string, authorize = true): Promise<string> {
-    if (!this.backupTeeRpcUrl) throw new Error('No backup TEE configured');
+  private async buildBackupUrl(
+    path: string,
+    authorize = true,
+  ): Promise<string> {
+    if (!this.backupTeeRpcUrl) throw new Error("No backup TEE configured");
     const base = new URL(path, `${this.backupTeeRpcUrl}/`);
     if (authorize) {
       const token = await this.ensureBackupAuthToken();
-      base.searchParams.set('token', token);
+      base.searchParams.set("token", token);
     }
     return base.toString();
   }
@@ -136,40 +163,45 @@ export class TeeService {
       chainHash?: Uint8Array;
       communitySeeds?: number[];
       vrfRandomness?: Uint8Array;
-    } = {}
+    } = {},
   ): Promise<TeeAttestation> {
     const teeMarketType = ((): TeeMarketType => {
       const map: Record<string, TeeMarketType> = {
-        PICK_RANGE: 'PickRange',
-        EVEN_ODD: 'EvenOdd',
-        LAST_DIGIT: 'LastDigit',
-        MODULO_THREE: 'ModuloThree',
-        PATTERN_OF_DAY: 'PatternOfDay',
-        SHAPE_COLOR: 'ShapeColor',
-        JACKPOT: 'Jackpot',
-        ENTROPY_BATTLE: 'EntropyBattle',
-        STREAK_METER: 'StreakMeter',
-        COMMUNITY_SEED: 'CommunitySeed',
+        PICK_RANGE: "PickRange",
+        EVEN_ODD: "EvenOdd",
+        LAST_DIGIT: "LastDigit",
+        MODULO_THREE: "ModuloThree",
+        PATTERN_OF_DAY: "PatternOfDay",
+        SHAPE_COLOR: "ShapeColor",
+        JACKPOT: "Jackpot",
+        ENTROPY_BATTLE: "EntropyBattle",
+        STREAK_METER: "StreakMeter",
+        COMMUNITY_SEED: "CommunitySeed",
       };
-      return map[marketType] || 'PickRange';
+      return map[marketType] || "PickRange";
     })();
 
     try {
       await this.ensureIntegrity();
-      const endpoint = await this.buildUrl('/generate_outcome');
+      const endpoint = await this.buildUrl("/generate_outcome");
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify((() => {
-          const p: any = {};
-          if (params.chainHash) p.chain_hash = Array.from(params.chainHash);
-          p.community_seeds = Array.isArray(params.communitySeeds) ? params.communitySeeds : [];
-          if (params.vrfRandomness) p.vrf_randomness = Array.from(params.vrfRandomness);
-          return { round_id: roundId, market_type: teeMarketType, params: p };
-        })()),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          (() => {
+            const p: any = {};
+            if (params.chainHash) p.chain_hash = Array.from(params.chainHash);
+            p.community_seeds = Array.isArray(params.communitySeeds)
+              ? params.communitySeeds
+              : [];
+            if (params.vrfRandomness)
+              p.vrf_randomness = Array.from(params.vrfRandomness);
+            return { round_id: roundId, market_type: teeMarketType, params: p };
+          })(),
+        ),
         signal: controller.signal,
       });
 
@@ -182,7 +214,9 @@ export class TeeService {
         } catch {
           errorDetail = undefined;
         }
-        throw new Error(`TEE RPC HTTP ${response.status}: ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
+        throw new Error(
+          `TEE RPC HTTP ${response.status}: ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ""}`,
+        );
       }
 
       return (await response.json()) as TeeAttestation;
@@ -190,38 +224,57 @@ export class TeeService {
       if (this.backupTeeRpcUrl) {
         try {
           if (config.TEE_INTEGRITY_REQUIRED) {
-            const { verifyTeeRpcIntegrity } = await import('@magicblock-labs/ephemeral-rollups-sdk/privacy');
+            const { verifyTeeRpcIntegrity } = await import(
+              "@magicblock-labs/ephemeral-rollups-sdk/privacy"
+            );
             const ok = await verifyTeeRpcIntegrity(this.backupTeeRpcUrl);
-            if (!ok) throw new Error('Backup TEE integrity verification failed');
+            if (!ok)
+              throw new Error("Backup TEE integrity verification failed");
           }
-          const endpoint = await this.buildBackupUrl('/generate_outcome');
+          const endpoint = await this.buildBackupUrl("/generate_outcome");
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 30000);
           const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify((() => {
-              const p: any = {};
-              if (params.chainHash) p.chain_hash = Array.from(params.chainHash);
-              p.community_seeds = Array.isArray(params.communitySeeds) ? params.communitySeeds : [];
-              if (params.vrfRandomness) p.vrf_randomness = Array.from(params.vrfRandomness);
-              return { round_id: roundId, market_type: teeMarketType, params: p };
-            })()),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              (() => {
+                const p: any = {};
+                if (params.chainHash)
+                  p.chain_hash = Array.from(params.chainHash);
+                p.community_seeds = Array.isArray(params.communitySeeds)
+                  ? params.communitySeeds
+                  : [];
+                if (params.vrfRandomness)
+                  p.vrf_randomness = Array.from(params.vrfRandomness);
+                return {
+                  round_id: roundId,
+                  market_type: teeMarketType,
+                  params: p,
+                };
+              })(),
+            ),
             signal: controller.signal,
           });
           clearTimeout(timeout);
           if (!response.ok) {
-            throw new Error(`Backup TEE RPC HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(
+              `Backup TEE RPC HTTP ${response.status}: ${response.statusText}`,
+            );
           }
           return (await response.json()) as TeeAttestation;
         } catch (e) {
-          logger.error({ err: e }, 'Backup TEE outcome generation failed');
+          logger.error({ err: e }, "Backup TEE outcome generation failed");
           if (config.TEE_PRIVATE_KEY_HEX) {
             const att = await generateOutcomeLocal(
               config.TEE_PRIVATE_KEY_HEX,
               roundId,
               teeMarketType,
-              { chainHash: params.chainHash, communitySeeds: params.communitySeeds, vrfRandomness: params.vrfRandomness }
+              {
+                chainHash: params.chainHash,
+                communitySeeds: params.communitySeeds,
+                vrfRandomness: params.vrfRandomness,
+              },
             );
             return att as unknown as TeeAttestation;
           }
@@ -233,7 +286,11 @@ export class TeeService {
           config.TEE_PRIVATE_KEY_HEX,
           roundId,
           teeMarketType,
-          { chainHash: params.chainHash, communitySeeds: params.communitySeeds, vrfRandomness: params.vrfRandomness }
+          {
+            chainHash: params.chainHash,
+            communitySeeds: params.communitySeeds,
+            vrfRandomness: params.vrfRandomness,
+          },
         );
         return att as unknown as TeeAttestation;
       }
@@ -245,17 +302,17 @@ export class TeeService {
     roundId: string,
     wallet: string,
     won: boolean,
-    target: number
+    target: number,
   ): Promise<{ new_streak: number }> {
     try {
       await this.ensureIntegrity();
-      const endpoint = await this.buildUrl('/update_streak');
+      const endpoint = await this.buildUrl("/update_streak");
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           round_id: roundId,
           wallet,
@@ -273,7 +330,7 @@ export class TeeService {
 
       return (await response.json()) as { new_streak: number };
     } catch (error: any) {
-      logger.error({ err: error }, 'TEE streak update failed');
+      logger.error({ err: error }, "TEE streak update failed");
       const key = `${roundId}:${wallet}`;
       const current = localStreakState.get(key) ?? 0;
       const next = won ? current + 1 : 0;
@@ -290,7 +347,7 @@ export class TeeService {
       const timeout = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(endpoint, {
-        method: 'GET',
+        method: "GET",
         signal: controller.signal,
       });
 
@@ -302,15 +359,14 @@ export class TeeService {
 
       return (await response.json()) as { streak: number };
     } catch (error: any) {
-      logger.error({ err: error }, 'TEE streak fetch failed');
+      logger.error({ err: error }, "TEE streak fetch failed");
       return { streak: localStreakState.get(wallet) ?? 0 };
     }
   }
 
   async getLatestBlockhash(): Promise<Uint8Array> {
     const { blockhash } = await this.connection.getLatestBlockhash();
-    const digest = createHash('sha256').update(blockhash).digest();
+    const digest = createHash("sha256").update(blockhash).digest();
     return new Uint8Array(digest.subarray(0, 32));
   }
-
 }

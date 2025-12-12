@@ -1,12 +1,18 @@
-import { User, Bet, Streak, CommunitySeed, LeaderboardEntry } from '@/config/database';
-import { NotFoundError } from '@/shared/errors';
+import {
+  User,
+  Bet,
+  Streak,
+  CommunitySeed,
+  LeaderboardEntry,
+} from "@/config/database";
+import { NotFoundError } from "@/shared/errors";
 
 export class UserService {
   async getProfile(userId: string) {
     const user = await User.findById(userId).lean();
 
     if (!user) {
-      throw new NotFoundError('User');
+      throw new NotFoundError("User");
     }
 
     const [stats, leaderboard] = await Promise.all([
@@ -21,15 +27,19 @@ export class UserService {
       stats: {
         totalBets: await Bet.countDocuments({ userId }),
         totalStreaks: await Streak.countDocuments({ userId }),
-        totalCommunityParticipations: await CommunitySeed.countDocuments({ userId }),
+        totalCommunityParticipations: await CommunitySeed.countDocuments({
+          userId,
+        }),
         ...stats,
       },
-      leaderboard: leaderboard ? {
-        totalWon: leaderboard.totalWon,
-        winRate: leaderboard.winRate,
-        streak: leaderboard.streak,
-        totalPayout: Number(leaderboard.totalPayout),
-      } : null,
+      leaderboard: leaderboard
+        ? {
+            totalWon: leaderboard.totalWon,
+            winRate: leaderboard.winRate,
+            streak: leaderboard.streak,
+            totalPayout: Number(leaderboard.totalPayout),
+          }
+        : null,
     };
   }
 
@@ -42,16 +52,22 @@ export class UserService {
       completedStreaks,
       communityWins,
     ] = await Promise.all([
-      Bet.countDocuments({ userId, status: 'WON' }),
-      Bet.aggregate([{ $match: { userId } }, { $group: { _id: null, total: { $sum: '$stake' } } }]),
-      Bet.aggregate([{ $match: { userId, status: 'WON' } }, { $group: { _id: null, total: { $sum: '$payout' } } }]),
-      Streak.countDocuments({ userId, status: 'ACTIVE' }),
-      Streak.countDocuments({ userId, status: 'COMPLETED' }),
+      Bet.countDocuments({ userId, status: "WON" }),
+      Bet.aggregate([
+        { $match: { userId } },
+        { $group: { _id: null, total: { $sum: "$stake" } } },
+      ]),
+      Bet.aggregate([
+        { $match: { userId, status: "WON" } },
+        { $group: { _id: null, total: { $sum: "$payout" } } },
+      ]),
+      Streak.countDocuments({ userId, status: "ACTIVE" }),
+      Streak.countDocuments({ userId, status: "COMPLETED" }),
       CommunitySeed.countDocuments({ userId, won: true }),
     ]);
 
-    const totalStaked = Number((totalStake[0]?.total) || 0);
-    const totalPaid = Number((totalPayout[0]?.total) || 0);
+    const totalStaked = Number(totalStake[0]?.total || 0);
+    const totalPaid = Number(totalPayout[0]?.total || 0);
     const profitLoss = totalPaid - totalStaked;
 
     return {
@@ -65,7 +81,10 @@ export class UserService {
     };
   }
 
-  async getBetHistory(userId: string, options: { page?: number; limit?: number; marketId?: string } = {}) {
+  async getBetHistory(
+    userId: string,
+    options: { page?: number; limit?: number; marketId?: string } = {},
+  ) {
     const { page = 1, limit = 20, marketId } = options;
 
     const where: any = { userId };
@@ -74,10 +93,10 @@ export class UserService {
     const [bets, total] = await Promise.all([
       Bet.find(where)
         .populate({
-          path: 'roundId',
-          select: 'roundNumber status outcome settledAt marketId',
-          populate: { path: 'marketId', select: 'id name type' },
-          model: 'Round',
+          path: "roundId",
+          select: "roundNumber status outcome settledAt marketId",
+          populate: { path: "marketId", select: "id name type" },
+          model: "Round",
         })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
@@ -105,7 +124,10 @@ export class UserService {
     };
   }
 
-  async getStreakHistory(userId: string, options: { page?: number; limit?: number } = {}) {
+  async getStreakHistory(
+    userId: string,
+    options: { page?: number; limit?: number } = {},
+  ) {
     const { page = 1, limit = 20 } = options;
 
     const [streaks, total] = await Promise.all([
@@ -127,16 +149,19 @@ export class UserService {
     };
   }
 
-  async getCommunityHistory(userId: string, options: { page?: number; limit?: number } = {}) {
+  async getCommunityHistory(
+    userId: string,
+    options: { page?: number; limit?: number } = {},
+  ) {
     const { page = 1, limit = 20 } = options;
 
     const [seeds, total] = await Promise.all([
       CommunitySeed.find({ userId })
         .populate({
-          path: 'roundId',
-          select: 'roundNumber status settledAt marketId',
-          populate: { path: 'marketId', select: 'name type' },
-          model: 'Round',
+          path: "roundId",
+          select: "roundNumber status settledAt marketId",
+          populate: { path: "marketId", select: "name type" },
+          model: "Round",
         })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
@@ -158,16 +183,23 @@ export class UserService {
   async getRecentActivity(userId: string, limit: number = 10) {
     const [recentBets, recentStreaks, recentCommunity] = await Promise.all([
       Bet.find({ userId })
-        .populate({ path: 'roundId', select: 'roundNumber marketId', populate: { path: 'marketId', select: 'name' }, model: 'Round' })
+        .populate({
+          path: "roundId",
+          select: "roundNumber marketId",
+          populate: { path: "marketId", select: "name" },
+          model: "Round",
+        })
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
-      Streak.find({ userId })
-        .sort({ startedAt: -1 })
-        .limit(limit)
-        .lean(),
+      Streak.find({ userId }).sort({ startedAt: -1 }).limit(limit).lean(),
       CommunitySeed.find({ userId })
-        .populate({ path: 'roundId', select: 'roundNumber marketId', populate: { path: 'marketId', select: 'name' }, model: 'Round' })
+        .populate({
+          path: "roundId",
+          select: "roundNumber marketId",
+          populate: { path: "marketId", select: "name" },
+          model: "Round",
+        })
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
@@ -175,7 +207,7 @@ export class UserService {
 
     return {
       recentBets: recentBets.map((bet: any) => ({
-        type: 'bet',
+        type: "bet",
         id: bet._id?.toString() || bet.id,
         stake: Number(bet.stake),
         status: bet.status,
@@ -184,7 +216,7 @@ export class UserService {
         createdAt: bet.createdAt,
       })),
       recentStreaks: recentStreaks.map((streak: any) => ({
-        type: 'streak',
+        type: "streak",
         id: streak._id?.toString() || streak.id,
         currentStreak: streak.currentStreak,
         target: streak.target,
@@ -192,7 +224,7 @@ export class UserService {
         startedAt: streak.startedAt,
       })),
       recentCommunity: recentCommunity.map((seed: any) => ({
-        type: 'community',
+        type: "community",
         id: seed._id?.toString() || seed.id,
         byte: seed.byte,
         won: seed.won,

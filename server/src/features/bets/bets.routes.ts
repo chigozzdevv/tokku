@@ -1,40 +1,40 @@
-import { FastifyInstance } from 'fastify';
-import { BetsController } from './bets.controller';
+import { FastifyInstance } from "fastify";
+import { BetsController } from "./bets.controller";
 
 const betsController = new BetsController();
 
 export async function betsRoutes(fastify: FastifyInstance) {
-  fastify.addHook('preHandler', async (request, reply) => {
+  fastify.addHook("preHandler", async (request, reply) => {
     await fastify.verifyJWT(request, reply);
   });
 
   fastify.post(
-    '/place',
+    "/place",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Place a bet',
-        description: 'Place a bet on an active round via MagicBlock ER',
+        tags: ["Bets"],
+        summary: "Place a bet",
+        description: "Place a bet on an active round via MagicBlock ER",
         body: {
-          type: 'object',
-          required: ['roundId', 'selection', 'stake'],
+          type: "object",
+          required: ["roundId", "selection", "stake"],
           properties: {
-            roundId: { type: 'string', minLength: 1 },
-            selection: { type: 'object' },
-            stake: { type: 'number', minimum: 0, maximum: 100000000000 },
+            roundId: { type: "string", minLength: 1 },
+            selection: { type: "object" },
+            stake: { type: "number", minimum: 0, maximum: 100000000000 },
           },
         },
         response: {
           200: {
-            type: 'object',
+            type: "object",
             properties: {
-              success: { type: 'boolean' },
+              success: { type: "boolean" },
               data: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  transaction: { type: 'string' },
-                  betPda: { type: 'string' },
-                  message: { type: 'string' },
+                  transaction: { type: "string" },
+                  betPda: { type: "string" },
+                  message: { type: "string" },
                 },
               },
             },
@@ -42,43 +42,43 @@ export async function betsRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    betsController.placeBet
+    betsController.placeBet,
   );
 
   fastify.post(
-    '/confirm',
+    "/confirm",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Confirm bet transaction',
-        description: 'Confirm bet after signing and submitting transaction',
+        tags: ["Bets"],
+        summary: "Confirm bet transaction",
+        description: "Confirm bet after signing and submitting transaction",
         body: {
-          type: 'object',
-          required: ['roundId', 'selection', 'stake', 'txSignature', 'betPda'],
+          type: "object",
+          required: ["roundId", "selection", "stake", "txSignature", "betPda"],
           properties: {
-            roundId: { type: 'string', minLength: 1 },
-            selection: { type: 'object' },
-            stake: { type: 'number', minimum: 0, maximum: 100000000000 },
-            txSignature: { type: 'string', minLength: 1 },
-            betPda: { type: 'string', minLength: 1 },
+            roundId: { type: "string", minLength: 1 },
+            selection: { type: "object" },
+            stake: { type: "number", minimum: 0, maximum: 100000000000 },
+            txSignature: { type: "string", minLength: 1 },
+            betPda: { type: "string", minLength: 1 },
           },
         },
         response: {
           200: {
-            type: 'object',
+            type: "object",
             properties: {
-              success: { type: 'boolean' },
+              success: { type: "boolean" },
               data: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  id: { type: 'string' },
-                  userId: { type: 'string' },
-                  roundId: { type: 'string' },
-                  selection: { type: 'object' },
-                  stake: { type: 'number' },
-                  odds: { type: 'number' },
-                  status: { type: 'string' },
-                  txHash: { type: 'string' },
+                  id: { type: "string" },
+                  userId: { type: "string" },
+                  roundId: { type: "string" },
+                  selection: { type: "object" },
+                  stake: { type: "number" },
+                  odds: { type: "number" },
+                  status: { type: "string" },
+                  txHash: { type: "string" },
                 },
               },
             },
@@ -86,103 +86,106 @@ export async function betsRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    betsController.confirmBet
+    betsController.confirmBet,
   );
 
   fastify.get(
-    '/my-bets',
+    "/my-bets",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Get user bets',
-        description: 'Retrieve current user\'s betting history',
+        tags: ["Bets"],
+        summary: "Get user bets",
+        description: "Retrieve current user's betting history",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            status: { type: 'string', enum: ['PENDING', 'WON', 'LOST', 'REFUNDED'] },
-            marketId: { type: 'string' },
-            page: { type: 'number', minimum: 1, default: 1 },
-            limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
+            status: {
+              type: "string",
+              enum: ["PENDING", "WON", "LOST", "REFUNDED"],
+            },
+            marketId: { type: "string" },
+            page: { type: "number", minimum: 1, default: 1 },
+            limit: { type: "number", minimum: 1, maximum: 100, default: 20 },
           },
         },
       },
     },
-    betsController.getUserBets
+    betsController.getUserBets,
   );
 
   fastify.get(
-    '/stats',
+    "/stats",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Get betting statistics',
-        description: 'Get user betting statistics and performance metrics',
+        tags: ["Bets"],
+        summary: "Get betting statistics",
+        description: "Get user betting statistics and performance metrics",
       },
     },
-    betsController.getBetStats
+    betsController.getBetStats,
   );
 
   fastify.get(
-    '/leaderboard',
+    "/leaderboard",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Get leaderboard',
-        description: 'Get top performers leaderboard',
+        tags: ["Bets"],
+        summary: "Get leaderboard",
+        description: "Get top performers leaderboard",
         querystring: {
-          type: 'object',
+          type: "object",
           properties: {
-            page: { type: 'number', minimum: 1, default: 1 },
-            limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
+            page: { type: "number", minimum: 1, default: 1 },
+            limit: { type: "number", minimum: 1, maximum: 100, default: 20 },
           },
         },
       },
     },
-    betsController.getLeaderboard
+    betsController.getLeaderboard,
   );
 
   fastify.get(
-    '/round/:roundId',
+    "/round/:roundId",
     {
       schema: {
-        tags: ['Bets'],
-        summary: 'Get round bets',
-        description: 'Get all bets for a specific round',
+        tags: ["Bets"],
+        summary: "Get round bets",
+        description: "Get all bets for a specific round",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
       },
     },
-    betsController.getRoundBets
+    betsController.getRoundBets,
   );
 
   // Admin route for refunds
   fastify.post(
-    '/round/:roundId/refund',
+    "/round/:roundId/refund",
     {
       schema: {
-        tags: ['Bets (Admin)'],
-        summary: 'Refund round bets',
-        description: 'Refund all pending bets for a round (admin only)',
+        tags: ["Bets (Admin)"],
+        summary: "Refund round bets",
+        description: "Refund all pending bets for a round (admin only)",
         params: {
-          type: 'object',
+          type: "object",
           properties: {
-            roundId: { type: 'string' },
+            roundId: { type: "string" },
           },
-          required: ['roundId'],
+          required: ["roundId"],
         },
         body: {
-          type: 'object',
+          type: "object",
           properties: {
-            reason: { type: 'string' },
+            reason: { type: "string" },
           },
         },
       },
     },
-    betsController.refundBets
+    betsController.refundBets,
   );
 }
